@@ -1,4 +1,4 @@
-# PSS — Problem Specification System (v0.6)
+# PSS — Problem Specification System (v0.7)
 
 **PSS is a shared specification of thinking conditions** for Humans, Agents, and LLMs.
 
@@ -7,16 +7,50 @@
 
 ---
 
-## v0.6 Key Changes
+## v0.7: Validator
 
-- **PhaseState integrated** into ProblemSpecification → Capsule alone carries full state
-- **Behavior** newly introduced: consolidates Role / Confidence / Interaction / Criticism into **executable rules**
-- Knowledge separated into **Observation / Inference / Assumption / Unknown**
-- From declarative labels toward **actionable behavior rules** (if_unknown → answer_unknown etc.)
+PSS now includes a **diagnostic Validator**.
+
+It does not simply say Yes/No. It produces a structured report:
+
+```
+Validation Report
+
+PASS / WARN / ERROR
+
+Coverage
+---------
+Scope      PASS
+Phase      PASS
+Knowledge  WARN
+Behavior   PASS
+Output     PASS
+
+Warnings
+--------
+Knowledge:
+- inference exists without observation
+  → Suggestion: ...
+```
+
+### Independent Validators
+
+- IdentityValidator
+- ObjectiveValidator
+- ScopeValidator
+- PhaseValidator
+- BehaviorValidator
+- KnowledgeValidator
+- ConstraintValidator
+- OutputValidator
+
+`CompositeValidator` aggregates them into one report.
+
+This makes PSS ready for CI and for human-readable diagnosis.
 
 ---
 
-## Structure (v0.6)
+## Structure (v0.6 + v0.7)
 
 ```
 PSS Capsule / ProblemSpecification
@@ -26,24 +60,13 @@ PSS Capsule / ProblemSpecification
 ├── Scope
 ├── Knowledge          (Observation / Inference / Assumption / Unknown)
 ├── ThinkingProfile
-├── Behavior           ← NEW (executable rules)
+├── Behavior           (executable rules)
 ├── Output
 ├── Evaluation
-└── PhaseState         ← integrated
+└── PhaseState
+
++ Validator (diagnostic)
 ```
-
-### Behavior Rules (example)
-
-```yaml
-rules:
-  if_unknown: answer_unknown
-  if_assumption: mark_assumption
-  if_scope_violation: stop
-  if_missing_required: ask
-  if_low_confidence: state_confidence
-```
-
-This turns policy declarations into concrete actions that Agents and LLMs can follow without ambiguity.
 
 ---
 
@@ -51,11 +74,13 @@ This turns policy declarations into concrete actions that Agents and LLMs can fo
 
 PSS defines **how to think**, not **what to answer**.
 
-The same specification can be shared by a human, an agent, or an LLM.
+With the Validator, PSS now supports the cycle:
+
+**Write → Validate → Improve**
 
 ---
 
 ## Version
 
-Current: **0.6**  
-Schema: `pss.problem_specification/0.6`
+Current: **0.7**  
+Schema: `pss.problem_specification/0.6` (core) + Validator 0.7
