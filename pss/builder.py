@@ -1,60 +1,89 @@
 """
-PSS ProblemBuilder (v0.3)
+PSS ProblemBuilder (v0.5)
 =========================
-段階的に ProblemSpecification を構築する便利インターフェース。
-主入力経路は Capsule だが、手動組み立て用に残す。
-推論・Sub-Goal生成・知識補完は一切行わない。
+段階的に ProblemSpecification を構築する Fluent Interface。
+v0.5: Identity / Objective / Constraints / Scope / Knowledge /
+      ThinkingProfile / AgentRole / Output / Extensions を正式サポート。
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 from .core import (
-    Problem,
+    Identity,
+    Objective,
     CurrentState,
     Goal,
     Difference,
+    Constraints,
     ConstraintSpec,
-    SectionGate,
-    EvaluationAxis,
-    Tolerance,
+    Scope,
     KnowledgeState,
+    ThinkingProfile,
+    AgentRoleSpec,
+    OutputSpec,
+    EvaluationAxis,
+    ExtensionOptions,
     ProblemSpecification,
+    ReasoningBias,
+    Depth,
+    EvidencePolicy,
+    AgentRole,
+    Audience,
+    ConfidencePolicy,
+    InteractionPolicy,
+    CriticismLevel,
 )
 
 
 class ProblemBuilder:
-    """Fluent interface で問題仕様書を組み立てる。"""
+    """Fluent interface で思考条件仕様書を組み立てる。"""
 
     def __init__(self) -> None:
-        self._problem = Problem()
-        self._current = CurrentState()
-        self._goal = Goal()
-        self._difference = Difference()
-        self._constraints: List[ConstraintSpec] = []
-        self._section_gate: Optional[SectionGate] = None
+        self._identity = Identity()
+        self._objective = Objective()
+        self._constraints = Constraints()
+        self._scope = Scope()
         self._knowledge = KnowledgeState()
-        self._eval_axis = EvaluationAxis()
-        self._tolerance = Tolerance()
+        self._thinking = ThinkingProfile()
+        self._agent_role = AgentRoleSpec()
+        self._output = OutputSpec()
+        self._evaluation = EvaluationAxis()
+        self._extensions = ExtensionOptions()
 
+    # ------------------------------------------------------------------
+    # 1. Identity
+    # ------------------------------------------------------------------
     def title(self, title: str) -> "ProblemBuilder":
-        self._problem.title = title
-        return self
-
-    def description(self, desc: str) -> "ProblemBuilder":
-        self._problem.description = desc
+        self._identity.title = title
         return self
 
     def domain(self, domain: str) -> "ProblemBuilder":
-        self._problem.domain = domain
+        self._identity.domain = domain
         return self
 
+    def description(self, desc: str) -> "ProblemBuilder":
+        self._identity.description = desc
+        return self
+
+    def identity(self, title: str = "", domain: str = "", description: str = "") -> "ProblemBuilder":
+        if title:
+            self._identity.title = title
+        if domain:
+            self._identity.domain = domain
+        if description:
+            self._identity.description = description
+        return self
+
+    # ------------------------------------------------------------------
+    # 2. Objective
+    # ------------------------------------------------------------------
     def current_state(
         self,
         description: str = "",
         facts: Optional[Dict[str, Any]] = None,
     ) -> "ProblemBuilder":
-        self._current = CurrentState(
+        self._objective.current_state = CurrentState(
             description=description,
             facts=dict(facts or {}),
         )
@@ -66,11 +95,13 @@ class ProblemBuilder:
         target: Optional[Dict[str, Any]] = None,
         success_criteria: Optional[Sequence[str]] = None,
     ) -> "ProblemBuilder":
-        self._goal = Goal(
+        self._objective.goal = Goal(
             description=description,
             target=dict(target or {}),
             success_criteria=list(success_criteria or []),
         )
+        if success_criteria:
+            self._objective.success_criteria = list(success_criteria)
         return self
 
     def difference(
@@ -80,7 +111,7 @@ class ProblemBuilder:
         excesses: Optional[Sequence[str]] = None,
         quantitative: Optional[Dict[str, float]] = None,
     ) -> "ProblemBuilder":
-        self._difference = Difference(
+        self._objective.difference = Difference(
             description=description,
             gaps=list(gaps or []),
             excesses=list(excesses or []),
@@ -88,6 +119,9 @@ class ProblemBuilder:
         )
         return self
 
+    # ------------------------------------------------------------------
+    # 3. Constraints
+    # ------------------------------------------------------------------
     def add_constraint(
         self,
         statement: str,
@@ -95,14 +129,17 @@ class ProblemBuilder:
         priority: int = 0,
         **metadata: Any,
     ) -> "ProblemBuilder":
-        self._constraints.append(
-            ConstraintSpec(
-                statement=statement,
-                kind=kind,
-                priority=priority,
-                metadata=dict(metadata),
-            )
-        )
+        c = ConstraintSpec(statement=statement, kind=kind, priority=priority, metadata=dict(metadata))
+        if kind == "hard":
+            self._constraints.hard.append(c)
+        elif kind == "soft":
+            self._constraints.soft.append(c)
+        elif kind == "assumption":
+            self._constraints.assumptions.append(c)
+        elif kind == "risk":
+            self._constraints.risks.append(c)
+        else:
+            self._constraints.hard.append(c)
         return self
 
     def add_default_safety_constraints(self) -> "ProblemBuilder":
@@ -116,21 +153,59 @@ class ProblemBuilder:
             self.add_constraint(stmt, kind="hard", priority=pri)
         return self
 
-    def section_gate(
+    def hard_constraint(self, statement: str, priority: int = 0) -> "ProblemBuilder":
+        return self.add_constraint(statement, kind="hard", priority=priority)
+
+    def soft_constraint(self, statement: str, priority: int = 0) -> "ProblemBuilder":
+        return self.add_constraint(statement, kind="soft", priority=priority)
+
+    def risk(self, statement: str, priority: int = 0) -> "ProblemBuilder":
+        return self.add_constraint(statement, kind="risk", priority=priority)
+
+    # ------------------------------------------------------------------
+    # 4. Scope
+    # ------------------------------------------------------------------
+    def scope(
         self,
-        name: str,
-        required_fields: Sequence[str],
-        available_fields: Optional[Sequence[str]] = None,
+        in_scope: Optional[Sequence[str]] = None,
+        out_of_scope: Optional[Sequence[str]] = None,
+        priority: Optional[Sequence[str]] = None,
+        allowed_changes: Optional[Sequence[str]] = None,
+        notes: str = "",
     ) -> "ProblemBuilder":
-        gate = SectionGate(
-            name=name,
-            required_fields=list(required_fields),
-        )
-        if available_fields is not None:
-            gate = gate.evaluate(available_fields)
-        else:
-            gate.missing_fields = list(required_fields)
-        self._section_gate = gate
+        if in_scope is not None:
+            self._scope.in_scope = list(in_scope)
+        if out_of_scope is not None:
+            self._scope.out_of_scope = list(out_of_scope)
+        if priority is not None:
+            self._scope.priority = list(priority)
+        if allowed_changes is not None:
+            self._scope.allowed_changes = list(allowed_changes)
+        if notes:
+            self._scope.notes = notes
+        return self
+
+    # ------------------------------------------------------------------
+    # 5. Knowledge
+    # ------------------------------------------------------------------
+    def knowledge(
+        self,
+        known: Optional[Sequence[str]] = None,
+        unknown: Optional[Sequence[str]] = None,
+        missing: Optional[Sequence[str]] = None,
+        assumption: Optional[Sequence[str]] = None,
+        references: Optional[Sequence[str]] = None,
+    ) -> "ProblemBuilder":
+        if known is not None:
+            self._knowledge.known = list(known)
+        if unknown is not None:
+            self._knowledge.unknown = list(unknown)
+        if missing is not None:
+            self._knowledge.missing = list(missing)
+        if assumption is not None:
+            self._knowledge.assumption = list(assumption)
+        if references is not None:
+            self._knowledge.references = list(references)
         return self
 
     def known(self, items: Sequence[str]) -> "ProblemBuilder":
@@ -145,60 +220,123 @@ class ProblemBuilder:
         self._knowledge.assumption = list(items)
         return self
 
-    def knowledge(
+    # ------------------------------------------------------------------
+    # 6. Thinking Profile
+    # ------------------------------------------------------------------
+    def thinking_profile(
         self,
-        known: Optional[Sequence[str]] = None,
-        unknown: Optional[Sequence[str]] = None,
-        assumption: Optional[Sequence[str]] = None,
+        reasoning_bias: str = "balanced",
+        depth: str = "normal",
+        evidence_policy: str = "observation_first",
+        custom_bias_note: str = "",
     ) -> "ProblemBuilder":
-        if known is not None:
-            self._knowledge.known = list(known)
-        if unknown is not None:
-            self._knowledge.unknown = list(unknown)
-        if assumption is not None:
-            self._knowledge.assumption = list(assumption)
+        self._thinking = ThinkingProfile(
+            reasoning_bias=reasoning_bias,
+            depth=depth,
+            evidence_policy=evidence_policy,
+            custom_bias_note=custom_bias_note,
+        )
         return self
 
+    # ------------------------------------------------------------------
+    # 7. Agent Role
+    # ------------------------------------------------------------------
+    def agent_role(self, role: str = "collaborator", custom_description: str = "") -> "ProblemBuilder":
+        self._agent_role = AgentRoleSpec(role=role, custom_description=custom_description)
+        return self
+
+    # ------------------------------------------------------------------
+    # 8. Output
+    # ------------------------------------------------------------------
+    def output(
+        self,
+        format: str = "markdown",
+        style: str = "clear",
+        length: str = "medium",
+        language: str = "ja",
+        required_sections: Optional[Sequence[str]] = None,
+    ) -> "ProblemBuilder":
+        self._output = OutputSpec(
+            format=format,
+            style=style,
+            length=length,
+            language=language,
+            required_sections=list(required_sections or []),
+        )
+        return self
+
+    # ------------------------------------------------------------------
+    # 9. Evaluation
+    # ------------------------------------------------------------------
     def evaluation_axis(
         self,
         axes: Dict[str, float],
         notes: str = "",
     ) -> "ProblemBuilder":
-        self._eval_axis = EvaluationAxis(axes=dict(axes), notes=notes)
+        self._evaluation = EvaluationAxis(axes=dict(axes), notes=notes)
         return self
 
-    def tolerance(
+    # ------------------------------------------------------------------
+    # 10. Extensions
+    # ------------------------------------------------------------------
+    def extensions(
         self,
-        description: str = "",
-        quantitative: Optional[Dict[str, float]] = None,
-        qualitative: Optional[Sequence[str]] = None,
+        audience: str = "general_user",
+        confidence_policy: str = "medium_plus",
+        interaction_policy: str = "question_first",
+        criticism_level: str = "1_normal",
+        **custom: Any,
     ) -> "ProblemBuilder":
-        self._tolerance = Tolerance(
-            description=description,
-            quantitative=dict(quantitative or {}),
-            qualitative=list(qualitative or []),
+        self._extensions = ExtensionOptions(
+            audience=audience,
+            confidence_policy=confidence_policy,
+            interaction_policy=interaction_policy,
+            criticism_level=criticism_level,
+            custom=dict(custom),
         )
         return self
 
+    def audience(self, value: str) -> "ProblemBuilder":
+        self._extensions.audience = value
+        return self
+
+    def confidence_policy(self, value: str) -> "ProblemBuilder":
+        self._extensions.confidence_policy = value
+        return self
+
+    def interaction_policy(self, value: str) -> "ProblemBuilder":
+        self._extensions.interaction_policy = value
+        return self
+
+    def criticism_level(self, value: str) -> "ProblemBuilder":
+        self._extensions.criticism_level = value
+        return self
+
+    # ------------------------------------------------------------------
+    # Build
+    # ------------------------------------------------------------------
     def build(self) -> ProblemSpecification:
+        # merge missing into unknown for safety
         knowledge = KnowledgeState(
             known=list(self._knowledge.known),
             unknown=list(self._knowledge.unknown),
+            missing=list(self._knowledge.missing),
             assumption=list(self._knowledge.assumption),
+            references=list(self._knowledge.references),
         )
-        if self._section_gate and not self._section_gate.is_complete:
-            for m in self._section_gate.missing_fields:
-                if m not in knowledge.unknown:
-                    knowledge.unknown.append(m)
+        for m in knowledge.missing:
+            if m not in knowledge.unknown:
+                knowledge.unknown.append(m)
 
         return ProblemSpecification(
-            problem=self._problem,
-            current_state=self._current,
-            goal=self._goal,
-            difference=self._difference,
-            constraints=list(self._constraints),
-            section_gate=self._section_gate,
+            identity=self._identity,
+            objective=self._objective,
+            constraints=self._constraints,
+            scope=self._scope,
             knowledge=knowledge,
-            evaluation_axis=self._eval_axis,
-            tolerance=self._tolerance,
+            thinking_profile=self._thinking,
+            agent_role=self._agent_role,
+            output=self._output,
+            evaluation=self._evaluation,
+            extensions=self._extensions,
         )
