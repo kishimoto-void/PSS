@@ -1,12 +1,8 @@
 """
-PSS Transport (v0.3)
+PSS Transport (v0.5)
 ====================
 主入出力を PLP Capsule に統一する。
-
-- 入力: Capsule → ProblemSpecification
-- 出力: ProblemSpecification → Capsule
-
-魔法のプロンプトはここには置かない。
+v0.5 のネスト構造に対応。
 """
 
 from __future__ import annotations
@@ -16,18 +12,7 @@ import json
 import time
 from uuid import uuid4
 
-from .core import (
-    Problem,
-    CurrentState,
-    Goal,
-    Difference,
-    ConstraintSpec,
-    SectionGate,
-    EvaluationAxis,
-    Tolerance,
-    KnowledgeState,
-    ProblemSpecification,
-)
+from .core import ProblemSpecification
 
 
 def problem_spec_to_dict(spec: ProblemSpecification) -> Dict[str, Any]:
@@ -38,64 +23,36 @@ def problem_spec_to_json(spec: ProblemSpecification, indent: int = 2) -> str:
     return json.dumps(spec.to_dict(), ensure_ascii=False, indent=indent)
 
 
-# ------------------------------------------------------------------
-# Capsule → ProblemSpecification（主入力経路）
-# ------------------------------------------------------------------
-
 def from_capsule_dict(capsule: Dict[str, Any]) -> ProblemSpecification:
-    """
-    PLP Capsule 互換 dict から ProblemSpecification を復元する。
-
-    優先順位:
-      1. pss_payload / pgs_payload が存在する → それを正式仕様として使う
-      2. それ以外 → header / input / observations から最小限の仕様を組み立てる
-    """
-    # 正式なペイロードがある場合
     payload = capsule.get("pss_payload") or capsule.get("pgs_payload")
-    if isinstance(payload, dict) and payload.get("schema", "").startswith(("pss.", "pgs.")):
+    if isinstance(payload, dict) and (
+        payload.get("schema", "").startswith(("pss.", "pgs.")) or "identity" in payload or "objective" in payload
+    ):
         return ProblemSpecification.from_dict(payload)
 
-    # フォールバック: Capsule の基本情報から最小仕様を作る
     header = capsule.get("header") or {}
     inp = capsule.get("input") or {}
     meta = inp.get("metadata") or {}
 
-    title = str(meta.get("title") or header.get("source") or "Untitled Problem")
-    domain = str(meta.get("domain") or "")
-    description = str(inp.get("raw_input") or meta.get("description") or "")
-
-    known = list(meta.get("known") or [])
-    unknown = list(meta.get("unknown") or [])
-    assumption = list(meta.get("assumption") or [])
+    from .core import Identity, KnowledgeState
 
     return ProblemSpecification(
-        problem=Problem(
-            title=title,
-            description=description,
-            domain=domain,
-        ),
-        current_state=CurrentState(
-            description=str(meta.get("current_state") or ""),
-        ),
-        goal=Goal(
-            description=str(meta.get("goal") or ""),
+        identity=Identity(
+            title=str(meta.get("title") or header.get("source") or "Untitled Problem"),
+            domain=str(meta.get("domain") or ""),
+            description=str(inp.get("raw_input") or meta.get("description") or ""),
         ),
         knowledge=KnowledgeState(
-            known=known,
-            unknown=unknown,
-            assumption=assumption,
+            known=list(meta.get("known") or []),
+            unknown=list(meta.get("unknown") or []),
+            assumption=list(meta.get("assumption") or []),
         ),
     )
 
 
 def from_capsule(capsule: Dict[str, Any]) -> ProblemSpecification:
-    """公開 API。Capsule dict を受け取り ProblemSpecification を返す。"""
     return from_capsule_dict(capsule)
 
-
-# ------------------------------------------------------------------
-# ProblemSpecification → Capsule（出力）
-# ------------------------------------------------------------------
 
 def to_capsule_dict(
     spec: ProblemSpecification,
@@ -105,12 +62,11 @@ def to_capsule_dict(
     sequence: int = 0,
     parent_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """ProblemSpecification を PLP Capsule 互換 dict に載せる。"""
     payload = spec.to_dict()
 
     observation = {
         "name": "pss.problem_specification",
-        "schema": "pss.problem_specification/0.3",
+        "schema": "pss.problem_specification/0.5",
         "capability": "custom",
         "values": {},
         "clock": clock,
@@ -139,8 +95,8 @@ def to_capsule_dict(
             "input_type": "pss.problem_specification",
             "metadata": {
                 "pss_version": spec.version,
-                "title": spec.problem.title,
-                "domain": spec.problem.domain,
+                "title": spec.identity.title,
+                "domain": spec.identity.domain,
             },
             "reference": None,
         },
@@ -174,88 +130,102 @@ def to_capsule(
     )
 
 
-# 互換エイリアス
 to_plp_capsule = to_capsule
 from_plp_capsule = from_capsule
 
 
 def render_specification(spec: ProblemSpecification) -> str:
-    """純粋な仕様書テキスト。命令は一切入れない。"""
     lines = [
         "=" * 60,
-        "PROBLEM SPECIFICATION",
+        "PROBLEM SPECIFICATION (Thinking Conditions)",
         f"schema : {spec.schema}",
         f"version: {spec.version}",
         "=" * 60,
         "",
-        f"Title       : {spec.problem.title}",
-        f"Domain      : {spec.problem.domain}",
-        f"Description : {spec.problem.description}",
+        "--- Identity ---",
+        f"Title       : {spec.identity.title}",
+        f"Domain      : {spec.identity.domain}",
+        f"Description : {spec.identity.description}",
         "",
-        "--- Current State ---",
-        spec.current_state.description or "(none)",
-        "",
-        "--- Goal ---",
-        spec.goal.description or "(none)",
+        "--- Objective ---",
+        f"Goal        : {spec.objective.goal.description or '(none)'}",
+        f"Current     : {spec.objective.current_state.description or '(none)'}",
+        f"Difference  : {spec.objective.difference.description or '(none)'}",
     ]
-    if spec.goal.success_criteria:
+    if spec.objective.goal.success_criteria:
         lines.append("Success criteria:")
-        for c in spec.goal.success_criteria:
+        for c in spec.objective.goal.success_criteria:
             lines.append(f"  - {c}")
 
-    lines.extend([
-        "",
-        "--- Difference ---",
-        spec.difference.description or "(none)",
-    ])
-    if spec.difference.gaps:
-        lines.append("Gaps:")
-        for g in spec.difference.gaps:
-            lines.append(f"  - {g}")
+    lines.extend(["", "--- Constraints ---"])
+    for kind, lst in [
+        ("hard", spec.constraints.hard),
+        ("soft", spec.constraints.soft),
+        ("assumption", spec.constraints.assumptions),
+        ("risk", spec.constraints.risks),
+    ]:
+        for c in sorted(lst, key=lambda x: -x.priority):
+            lines.append(f"  [{kind}/{c.priority}] {c.statement}")
 
-    if spec.constraints:
-        lines.extend(["", "--- Constraints ---"])
-        for c in sorted(spec.constraints, key=lambda x: -x.priority):
-            lines.append(f"  [{c.kind}/{c.priority}] {c.statement}")
-
-    if spec.section_gate:
-        lines.extend(["", "--- Section Gate ---"])
-        lines.append(f"Name     : {spec.section_gate.name}")
-        lines.append(f"Complete : {spec.section_gate.is_complete}")
-        if spec.section_gate.missing_fields:
-            lines.append("Missing  :")
-            for m in spec.section_gate.missing_fields:
-                lines.append(f"  - {m}")
+    if any([spec.scope.in_scope, spec.scope.out_of_scope, spec.scope.priority]):
+        lines.extend(["", "--- Scope ---"])
+        if spec.scope.in_scope:
+            lines.append("In Scope : " + ", ".join(spec.scope.in_scope))
+        if spec.scope.out_of_scope:
+            lines.append("Out of Scope : " + ", ".join(spec.scope.out_of_scope))
+        if spec.scope.priority:
+            lines.append("Priority : " + ", ".join(spec.scope.priority))
 
     lines.extend(["", "--- Knowledge ---"])
     if spec.knowledge.known:
         lines.append("Known:")
         for k in spec.knowledge.known:
             lines.append(f"  - {k}")
-    if spec.knowledge.unknown:
-        lines.append("Unknown:")
-        for u in spec.knowledge.unknown:
+    if spec.knowledge.unknown or spec.knowledge.missing:
+        lines.append("Unknown / Missing:")
+        for u in spec.knowledge.unknown + spec.knowledge.missing:
             lines.append(f"  - {u}")
     if spec.knowledge.assumption:
         lines.append("Assumption:")
         for a in spec.knowledge.assumption:
             lines.append(f"  - {a}")
 
-    if spec.evaluation_axis.axes:
-        lines.extend(["", "--- Evaluation Axes ---"])
-        for k, v in spec.evaluation_axis.axes.items():
-            lines.append(f"  {k}: {v}")
-        if spec.evaluation_axis.notes:
-            lines.append(f"  notes: {spec.evaluation_axis.notes}")
+    lines.extend([
+        "",
+        "--- Thinking Profile ---",
+        f"Reasoning Bias : {spec.thinking_profile.reasoning_bias}",
+        f"Depth          : {spec.thinking_profile.depth}",
+        f"Evidence Policy: {spec.thinking_profile.evidence_policy}",
+    ])
 
-    if spec.tolerance.description or spec.tolerance.quantitative or spec.tolerance.qualitative:
-        lines.extend(["", "--- Tolerance ---"])
-        if spec.tolerance.description:
-            lines.append(spec.tolerance.description)
-        for k, v in spec.tolerance.quantitative.items():
-            lines.append(f"  {k}: ±{v}")
-        for q in spec.tolerance.qualitative:
-            lines.append(f"  - {q}")
+    lines.extend([
+        "",
+        "--- Agent Role ---",
+        f"Role : {spec.agent_role.role}",
+    ])
+    if spec.agent_role.custom_description:
+        lines.append(f"Note : {spec.agent_role.custom_description}")
+
+    lines.extend([
+        "",
+        "--- Output ---",
+        f"Format : {spec.output.format} / Style : {spec.output.style} / Length : {spec.output.length}",
+        f"Language : {spec.output.language}",
+    ])
+
+    lines.extend([
+        "",
+        "--- Extensions ---",
+        f"Audience          : {spec.extensions.audience}",
+        f"Confidence Policy : {spec.extensions.confidence_policy}",
+        f"Interaction Policy: {spec.extensions.interaction_policy}",
+        f"Criticism Level   : {spec.extensions.criticism_level}",
+    ])
+
+    if spec.evaluation.axes:
+        lines.extend(["", "--- Evaluation Axes ---"])
+        for k, v in spec.evaluation.axes.items():
+            lines.append(f"  {k}: {v}")
 
     lines.append("")
     lines.append("=" * 60)
