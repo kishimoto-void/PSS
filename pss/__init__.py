@@ -1,44 +1,47 @@
 """
-PSS — Problem Specification System (v0.4)
+PSS — Problem Specification System (v0.5)
 =========================================
-PLP 上に載せる問題仕様書生成レイヤー。
+思考条件を定義する共通仕様。
 
-責務:
-  - 問題を適切に定義・構造化する
-  - PLP Capsule を主入出力とする
-  - Phase 1→2→3 の一巡制御（プログラム側）
-
-非責務:
-  - 推論そのもの
-  - 知識生成・補完
-  - Sub-Goal の生成
-  - 人格 / ロールプレイ
-  - 学習 / 記憶 / 世界モデル
-  - AI モデルの呼び出し
-
-設計原則:
-  PSS does not solve problems.
-  PSS defines problems.
-  PSS produces a Problem Specification.
-  Primary I/O is PLP Capsule.
-  Phase transitions are owned by the program, not the LLM.
-  Interpretation instructions belong to the Adapter / Compiler layer.
-
-Phase cycle:
-  1 Clarify → 2 Confirm → 3 Answer  (one closed cycle)
-  Definition-level failure → new_cycle() from Phase 1
+設計思想:
+  PSS は「LLMを制御する仕様」ではなく、「思考条件を定義する仕様」である。
+  人間 / Agent / LLM が同じ思考条件を共有できるようにする。
 """
 
 from .core import (
-    Problem,
+    # Identity
+    Identity,
+    # Objective
+    Objective,
     CurrentState,
     Goal,
     Difference,
+    # Constraints
+    Constraints,
     ConstraintSpec,
-    SectionGate,
-    EvaluationAxis,
-    Tolerance,
+    # Scope
+    Scope,
+    # Knowledge
     KnowledgeState,
+    # Thinking Profile
+    ThinkingProfile,
+    ReasoningBias,
+    Depth,
+    EvidencePolicy,
+    # Agent Role
+    AgentRoleSpec,
+    AgentRole,
+    # Output
+    OutputSpec,
+    # Evaluation
+    EvaluationAxis,
+    # Extensions
+    ExtensionOptions,
+    Audience,
+    ConfidencePolicy,
+    InteractionPolicy,
+    CriticismLevel,
+    # Aggregate
     ProblemSpecification,
 )
 from .builder import ProblemBuilder
@@ -68,15 +71,28 @@ from .adapter import (
 
 __all__ = [
     # core
-    "Problem",
+    "Identity",
+    "Objective",
     "CurrentState",
     "Goal",
     "Difference",
+    "Constraints",
     "ConstraintSpec",
-    "SectionGate",
-    "EvaluationAxis",
-    "Tolerance",
+    "Scope",
     "KnowledgeState",
+    "ThinkingProfile",
+    "ReasoningBias",
+    "Depth",
+    "EvidencePolicy",
+    "AgentRoleSpec",
+    "AgentRole",
+    "OutputSpec",
+    "EvaluationAxis",
+    "ExtensionOptions",
+    "Audience",
+    "ConfidencePolicy",
+    "InteractionPolicy",
+    "CriticismLevel",
     "ProblemSpecification",
     # builder
     "ProblemBuilder",
