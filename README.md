@@ -7,80 +7,48 @@
 
 ---
 
-## v0.7: Validator
-
-PSS now includes a **diagnostic Validator**.
-
-It does not simply say Yes/No. It produces a structured report:
+## Lifecycle (now complete)
 
 ```
-Validation Report
-
-PASS / WARN / ERROR
-
-Coverage
----------
-Scope      PASS
-Phase      PASS
-Knowledge  WARN
-Behavior   PASS
-Output     PASS
-
-Warnings
---------
-Knowledge:
-- inference exists without observation
-  → Suggestion: ...
+Builder          →  write specification
+Validator        →  diagnose (PASS / WARN / ERROR)
+Fix Planner      →  produce Fix Plan (no side effects)
+Executor         →  human / LLM / IDE / CI applies the plan
 ```
 
-### Independent Validators
-
-- IdentityValidator
-- ObjectiveValidator
-- ScopeValidator
-- PhaseValidator
-- BehaviorValidator
-- KnowledgeValidator
-- ConstraintValidator
-- OutputValidator
-
-`CompositeValidator` aggregates them into one report.
-
-This makes PSS ready for CI and for human-readable diagnosis.
+Validator never modifies the specification.  
+Fix Planner only produces a plan.  
+Execution is left to the caller.
 
 ---
 
-## Structure (v0.6 + v0.7)
+## Layers
 
-```
-PSS Capsule / ProblemSpecification
-├── Identity
-├── Objective
-├── Constraints
-├── Scope
-├── Knowledge          (Observation / Inference / Assumption / Unknown)
-├── ThinkingProfile
-├── Behavior           (executable rules)
-├── Output
-├── Evaluation
-└── PhaseState
-
-+ Validator (diagnostic)
-```
+1. **Specification** — what is defined (Identity, Objective, Knowledge, Behavior, Phase…)
+2. **Builder** — constructs the specification
+3. **Adapter** — turns it into LLM-readable form
+4. **Validator** — diagnoses quality (independent of Specification)
+5. **Fix Planner** — turns Findings into an ordered, executable plan
 
 ---
 
-## Design Principle
+## Example
 
-PSS defines **how to think**, not **what to answer**.
+```python
+from pss import ProblemBuilder, validate, plan_fixes
 
-With the Validator, PSS now supports the cycle:
+spec = ProblemBuilder().identity(title="").goal(description="").build()
+report = validate(spec)
+plan = plan_fixes(report)
 
-**Write → Validate → Improve**
+print(report.summary())
+print(plan.summary())
+```
 
 ---
 
 ## Version
 
 Current: **0.7**  
-Schema: `pss.problem_specification/0.6` (core) + Validator 0.7
+Core schema: `pss.problem_specification/0.6`  
+Validator + Planner: 0.7
