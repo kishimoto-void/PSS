@@ -1,11 +1,11 @@
 """
-PSS Adapter / Compiler (v0.4)
+PSS Adapter / Compiler (v0.5)
 =============================
-Problem Specification を各 Reasoning Engine 向けに解釈させる層。
+Problem Specification（思考条件仕様）を各 Reasoning Engine 向けに解釈させる層。
 
 フェーズ制約はプログラム側（PhaseController）が持つ。
 魔法のプロンプトは書かない。
-データ構造の意味と、現在フェーズの許可範囲だけを伝える。
+思考条件の意味と、現在フェーズの許可範囲だけを伝える。
 """
 
 from __future__ import annotations
@@ -14,47 +14,64 @@ from typing import Optional
 
 from .core import ProblemSpecification
 from .transport import render_specification
-from .phase import PhaseController, PhaseState, Phase
+from .phase import PhaseController
 
 
 SPEC_EXPLANATION = """\
 あなたは PSS (Problem Specification System) から生成された
-Problem Specification を受け取ります。
+「思考条件仕様書（Problem Specification）」を受け取ります。
 
-これは「問題を構造化した仕様書」です。
-各項目には以下の役割があります。
+これは「問題を解くための思考条件」を定義した仕様書です。
+特定のモデルを制御するものではなく、人間・Agent・LLM が共有する共通の思考条件です。
 
-- Goal
-  目標状態
+各項目の役割：
 
-- Difference
-  現在状態と目標状態の差異（縮小すべきもの）
+【Identity】
+- Title / Domain / Description : 問題の識別情報
 
-- Constraint
-  必ず守る条件（hard は絶対）
+【Objective】
+- Goal : 目標状態
+- Current State : 現在の状態
+- Difference : 現在と目標の差分（縮小すべきもの）
+- Success Criteria : 成功の判断基準
 
-- Section Gate
-  必須情報が揃っているかの確認結果
-  Missing がある場合は、まずそれを埋める必要がある
+【Constraints】
+- Hard : 必ず守る絶対条件
+- Soft : 望ましいが破っても致命的ではない条件
+- Assumptions : 明示的に置いている仮定
+- Risks : 注意すべきリスク
 
-- Known
-  確定している事実
+【Scope】
+- In Scope / Out of Scope / Priority / Allowed Changes
 
-- Unknown
-  まだ分かっていない情報（勝手に埋めない）
+【Knowledge】
+- Known : 確定している事実
+- Unknown / Missing : まだ分かっていない情報（勝手に埋めない）
+- Assumption : 仮定（明示的に扱う）
+- References : 参照情報
 
-- Assumption
-  現時点で置いている仮定（明示的に扱ってよい範囲）
+【Thinking Profile】
+- Reasoning Bias : 思考の偏り（balanced / engineering / scientific など）
+- Depth : quick / normal / deep
+- Evidence Policy : observation_first / allow_assumption / strict_evidence
 
-- Evaluation Axis
-  提案を比較する際の優先基準
+【Agent Role】
+- Collaborator（壁打ち） / Reviewer / Challenger / Supporter / Teacher / Analyst / Mediator など
 
-- Tolerance
-  完全一致を要求しない許容範囲
+【Output】
+- Format / Style / Length / Language / Required Sections
 
-Unknown を勝手に確定事実として扱わないでください。
-Assumption は明示した仮定として扱ってください。
-仕様書にない分析軸・スコア・フレームワークを追加しないでください。
+【Evaluation】
+- Accuracy / Safety / Clarity / Speed などの優先軸
+
+【Extensions】
+- Audience / Confidence Policy / Interaction Policy / Criticism Level
+
+ルール：
+- Unknown や Missing を勝手に確定事実として扱わないでください。
+- Assumption は「仮定」として明示的に扱ってください。
+- 仕様書にない分析軸・スコア・フレームワークを追加しないでください。
+- Thinking Profile と Agent Role の指定に従って思考・応答してください。
 """
 
 
