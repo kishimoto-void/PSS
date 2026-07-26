@@ -11,6 +11,14 @@ It is a lightweight, model-independent library for writing, validating, and impr
 
 ---
 
+## Architecture
+
+![PSS Architecture](docs/architecture.svg)
+
+See also: [docs/architecture.svg](docs/architecture.svg)
+
+---
+
 ## Core Principle
 
 ```text
