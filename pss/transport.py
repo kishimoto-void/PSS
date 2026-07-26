@@ -1,8 +1,8 @@
 """
-PSS Transport (v0.5)
+PSS Transport (v0.7)
 ====================
 主入出力を PLP Capsule に統一する。
-v0.5 のネスト構造に対応。
+v0.7 構造に対応。
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def from_capsule_dict(capsule: Dict[str, Any]) -> ProblemSpecification:
             description=str(inp.get("raw_input") or meta.get("description") or ""),
         ),
         knowledge=KnowledgeState(
-            known=list(meta.get("known") or []),
+            observation=list(meta.get("known") or meta.get("observation") or []),
             unknown=list(meta.get("unknown") or []),
             assumption=list(meta.get("assumption") or []),
         ),
@@ -66,7 +66,7 @@ def to_capsule_dict(
 
     observation = {
         "name": "pss.problem_specification",
-        "schema": "pss.problem_specification/0.5",
+        "schema": "pss.problem_specification/0.6",
         "capability": "custom",
         "values": {},
         "clock": clock,
@@ -177,9 +177,13 @@ def render_specification(spec: ProblemSpecification) -> str:
             lines.append("Priority : " + ", ".join(spec.scope.priority))
 
     lines.extend(["", "--- Knowledge ---"])
-    if spec.knowledge.known:
-        lines.append("Known:")
-        for k in spec.knowledge.known:
+    if spec.knowledge.observation:
+        lines.append("Observation:")
+        for k in spec.knowledge.observation:
+            lines.append(f"  - {k}")
+    if spec.knowledge.inference:
+        lines.append("Inference:")
+        for k in spec.knowledge.inference:
             lines.append(f"  - {k}")
     if spec.knowledge.unknown or spec.knowledge.missing:
         lines.append("Unknown / Missing:")
@@ -195,16 +199,22 @@ def render_specification(spec: ProblemSpecification) -> str:
         "--- Thinking Profile ---",
         f"Reasoning Bias : {spec.thinking_profile.reasoning_bias}",
         f"Depth          : {spec.thinking_profile.depth}",
-        f"Evidence Policy: {spec.thinking_profile.evidence_policy}",
+        f"Evidence Level : {spec.thinking_profile.evidence_level}",
     ])
 
     lines.extend([
         "",
-        "--- Agent Role ---",
-        f"Role : {spec.agent_role.role}",
+        "--- Behavior ---",
+        f"Role             : {spec.behavior.role}",
+        f"Criticism        : {spec.behavior.criticism_level}",
+        f"Confidence       : {spec.behavior.confidence_policy}",
+        f"Interaction      : {spec.behavior.interaction_policy}",
+        f"if_unknown       : {spec.behavior.rules.if_unknown}",
+        f"if_assumption    : {spec.behavior.rules.if_assumption}",
+        f"if_scope_violation: {spec.behavior.rules.if_scope_violation}",
     ])
-    if spec.agent_role.custom_description:
-        lines.append(f"Note : {spec.agent_role.custom_description}")
+    if spec.behavior.role_description:
+        lines.append(f"Role note        : {spec.behavior.role_description}")
 
     lines.extend([
         "",
@@ -215,12 +225,11 @@ def render_specification(spec: ProblemSpecification) -> str:
 
     lines.extend([
         "",
-        "--- Extensions ---",
-        f"Audience          : {spec.extensions.audience}",
-        f"Confidence Policy : {spec.extensions.confidence_policy}",
-        f"Interaction Policy: {spec.extensions.interaction_policy}",
-        f"Criticism Level   : {spec.extensions.criticism_level}",
+        "--- Phase ---",
+        f"Phase : {spec.phase_state.phase} (cycle {spec.phase_state.cycle})",
     ])
+    if spec.phase_state.scope:
+        lines.append(f"Scope : {spec.phase_state.scope} (agreed={spec.phase_state.scope_agreed})")
 
     if spec.evaluation.axes:
         lines.extend(["", "--- Evaluation Axes ---"])
