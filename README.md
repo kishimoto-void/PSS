@@ -17,7 +17,7 @@ It is a lightweight, model-independent library for writing, validating, and impr
 
 ![PSS Architecture](docs/architecture.svg)
 
-See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md)
+See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md) · [docs/PSS_Detailed_Test_Results.md](docs/PSS_Detailed_Test_Results.md)
 
 ---
 
@@ -96,6 +96,8 @@ if report.overall.value != "PASS":
 prompt = compile_for_generic(spec)
 ```
 
+For local copy-paste testing without installing the package, use the single-file edition: [`pss_single.py`](pss_single.py).
+
 ---
 
 ## Deprecations (v0.9)
@@ -139,7 +141,9 @@ When systems need structured exchange, a PSS specification can ride inside a PLP
 
 - Version: **0.9.0**
 - Schema: `pss.problem_specification/0.9`
-- Tests: 17 passed
+- Package tests: 17 passed
+- Single-file implementation test: **7/8 pass (87.5%)** — design intent verified  
+  → details: [docs/PSS_Detailed_Test_Results.md](docs/PSS_Detailed_Test_Results.md)
 - Public API is considered stable for the upcoming v1.0 release.
 
 Roadmap sketch:
