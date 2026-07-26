@@ -1,16 +1,17 @@
 """
-PSS Core Data Structures (v0.5)
+PSS Core Data Structures (v0.9)
 ===============================
-Problem Specification System — 思考条件を定義する共通仕様。
+思考条件を定義する共通仕様。
 
 設計思想:
   PSS は「LLMを制御する仕様」ではなく、「思考条件を定義する仕様」である。
   人間 / Agent / LLM が同じ思考条件を共有できるようにする。
 
-v0.5 の主な変更:
-  - Identity / Objective / Constraints / Scope / Knowledge / Evaluation / Phase をコアとして強化
-  - Thinking Profile / Agent Role / Output を正式追加
-  - Audience / Confidence Policy / Interaction Policy / Criticism Level を拡張オプションとして用意
+v0.6 の主な変更:
+  - PhaseState を ProblemSpecification に統合（Capsule単体で状態完結）
+  - Behavior を新設（Role + Confidence + Interaction + Criticism を行動規則として統合）
+  - Knowledge を Observation / Inference / Assumption / Unknown に明確分離
+  - 宣言的ラベルから「行動規則」へ寄せる
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ import time
 
 
 # =============================================================================
-# Enums for controlled vocabularies
+# Enums
 # =============================================================================
 
 class ReasoningBias(str, Enum):
@@ -43,22 +44,24 @@ class Depth(str, Enum):
     QUICK = "quick"
     NORMAL = "normal"
     DEEP = "deep"
+    RESEARCH = "research"
 
 
-class EvidencePolicy(str, Enum):
+class EvidenceLevel(str, Enum):
+    STRICT = "strict"
     OBSERVATION_FIRST = "observation_first"
-    ALLOW_ASSUMPTION = "allow_assumption"
-    STRICT_EVIDENCE = "strict_evidence"
+    ALLOW_INFERENCE = "allow_inference"
+    CREATIVE = "creative"
 
 
 class AgentRole(str, Enum):
-    COLLABORATOR = "collaborator"   # 壁打ち
-    REVIEWER = "reviewer"           # 評価
-    CHALLENGER = "challenger"       # 反証
-    SUPPORTER = "supporter"         # 支援
-    TEACHER = "teacher"             # 教育
-    ANALYST = "analyst"             # 分析
-    MEDIATOR = "mediator"           # 中立整理
+    COLLABORATOR = "collaborator"
+    REVIEWER = "reviewer"
+    CHALLENGER = "challenger"
+    SUPPORTER = "supporter"
+    TEACHER = "teacher"
+    ANALYST = "analyst"
+    MEDIATOR = "mediator"
     CUSTOM = "custom"
 
 
@@ -94,22 +97,15 @@ class CriticismLevel(str, Enum):
     DEVILS_ADVOCATE = "3_devils_advocate"
 
 
-class ConstraintKind(str, Enum):
-    HARD = "hard"
-    SOFT = "soft"
-    ASSUMPTION = "assumption"
-    RISK = "risk"
-
-
 # =============================================================================
-# 1. Identity
+# 1. Identity / Problem
 # =============================================================================
 
 @dataclass
 class Identity:
     title: str = ""
     domain: str = ""
-    version: str = "0.5"
+    version: str = "0.9"
     description: str = ""
     id: str = field(default_factory=lambda: str(uuid4()))
 
@@ -128,7 +124,7 @@ class Identity:
             id=str(data.get("id", str(uuid4()))),
             title=str(data.get("title", "")),
             domain=str(data.get("domain", "")),
-            version=str(data.get("version", "0.5")),
+            version=str(data.get("version", "0.9")),
             description=str(data.get("description", "")),
         )
 
@@ -330,53 +326,61 @@ class Scope:
 
 
 # =============================================================================
-# 5. Knowledge
+# 5. Knowledge (Observation / Inference / Assumption / Unknown)
 # =============================================================================
 
 @dataclass
 class KnowledgeState:
-    known: List[str] = field(default_factory=list)
+    observation: List[str] = field(default_factory=list)
+    inference: List[str] = field(default_factory=list)
+    assumption: List[str] = field(default_factory=list)
     unknown: List[str] = field(default_factory=list)
     missing: List[str] = field(default_factory=list)
-    assumption: List[str] = field(default_factory=list)
     references: List[str] = field(default_factory=list)
+
+    @property
+    def known(self) -> List[str]:
+        return self.observation + self.inference
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "known": list(self.known),
+            "observation": list(self.observation),
+            "inference": list(self.inference),
+            "assumption": list(self.assumption),
             "unknown": list(self.unknown),
             "missing": list(self.missing),
-            "assumption": list(self.assumption),
             "references": list(self.references),
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "KnowledgeState":
+        observation = list(data.get("observation") or data.get("known") or [])
         return cls(
-            known=list(data.get("known") or []),
+            observation=observation,
+            inference=list(data.get("inference") or []),
+            assumption=list(data.get("assumption") or []),
             unknown=list(data.get("unknown") or []),
             missing=list(data.get("missing") or []),
-            assumption=list(data.get("assumption") or []),
             references=list(data.get("references") or []),
         )
 
 
 # =============================================================================
-# 6. Thinking Profile (formal)
+# 6. Thinking Profile
 # =============================================================================
 
 @dataclass
 class ThinkingProfile:
     reasoning_bias: str = ReasoningBias.BALANCED.value
     depth: str = Depth.NORMAL.value
-    evidence_policy: str = EvidencePolicy.OBSERVATION_FIRST.value
+    evidence_level: str = EvidenceLevel.OBSERVATION_FIRST.value
     custom_bias_note: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "reasoning_bias": self.reasoning_bias,
             "depth": self.depth,
-            "evidence_policy": self.evidence_policy,
+            "evidence_level": self.evidence_level,
             "custom_bias_note": self.custom_bias_note,
         }
 
@@ -385,31 +389,80 @@ class ThinkingProfile:
         return cls(
             reasoning_bias=str(data.get("reasoning_bias", ReasoningBias.BALANCED.value)),
             depth=str(data.get("depth", Depth.NORMAL.value)),
-            evidence_policy=str(data.get("evidence_policy", EvidencePolicy.OBSERVATION_FIRST.value)),
+            evidence_level=str(data.get("evidence_level") or data.get("evidence_policy", EvidenceLevel.OBSERVATION_FIRST.value)),
             custom_bias_note=str(data.get("custom_bias_note", "")),
         )
 
 
 # =============================================================================
-# 7. Agent Role (formal)
+# 7. Behavior (executable rules)
 # =============================================================================
 
 @dataclass
-class AgentRoleSpec:
+class BehaviorRules:
+    if_unknown: str = "answer_unknown"
+    if_assumption: str = "mark_assumption"
+    if_scope_violation: str = "stop"
+    if_missing_required: str = "ask"
+    if_low_confidence: str = "state_confidence"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "if_unknown": self.if_unknown,
+            "if_assumption": self.if_assumption,
+            "if_scope_violation": self.if_scope_violation,
+            "if_missing_required": self.if_missing_required,
+            "if_low_confidence": self.if_low_confidence,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "BehaviorRules":
+        return cls(
+            if_unknown=str(data.get("if_unknown", "answer_unknown")),
+            if_assumption=str(data.get("if_assumption", "mark_assumption")),
+            if_scope_violation=str(data.get("if_scope_violation", "stop")),
+            if_missing_required=str(data.get("if_missing_required", "ask")),
+            if_low_confidence=str(data.get("if_low_confidence", "state_confidence")),
+        )
+
+
+@dataclass
+class Behavior:
     role: str = AgentRole.COLLABORATOR.value
-    custom_description: str = ""
+    role_description: str = ""
+    confidence_policy: str = ConfidencePolicy.MEDIUM_PLUS.value
+    interaction_policy: str = InteractionPolicy.QUESTION_FIRST.value
+    criticism_level: str = CriticismLevel.NORMAL.value
+    question_first: bool = True
+    proposal_level: str = "normal"
+    challenge_probability: str = "medium"
+    rules: BehaviorRules = field(default_factory=BehaviorRules)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "role": self.role,
-            "custom_description": self.custom_description,
+            "role_description": self.role_description,
+            "confidence_policy": self.confidence_policy,
+            "interaction_policy": self.interaction_policy,
+            "criticism_level": self.criticism_level,
+            "question_first": self.question_first,
+            "proposal_level": self.proposal_level,
+            "challenge_probability": self.challenge_probability,
+            "rules": self.rules.to_dict(),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AgentRoleSpec":
+    def from_dict(cls, data: Dict[str, Any]) -> "Behavior":
         return cls(
             role=str(data.get("role", AgentRole.COLLABORATOR.value)),
-            custom_description=str(data.get("custom_description", "")),
+            role_description=str(data.get("role_description") or data.get("custom_description", "")),
+            confidence_policy=str(data.get("confidence_policy", ConfidencePolicy.MEDIUM_PLUS.value)),
+            interaction_policy=str(data.get("interaction_policy", InteractionPolicy.QUESTION_FIRST.value)),
+            criticism_level=str(data.get("criticism_level", CriticismLevel.NORMAL.value)),
+            question_first=bool(data.get("question_first", True)),
+            proposal_level=str(data.get("proposal_level", "normal")),
+            challenge_probability=str(data.get("challenge_probability", "medium")),
+            rules=BehaviorRules.from_dict(data.get("rules") or {}),
         )
 
 
@@ -473,60 +526,69 @@ class EvaluationAxis:
 
 
 # =============================================================================
-# Extension Options
+# 10. Phase
 # =============================================================================
 
+class Phase(str, Enum):
+    CLARIFY = "1_clarify"
+    CONFIRM = "2_confirm"
+    ANSWER = "3_answer"
+
+
 @dataclass
-class ExtensionOptions:
-    audience: str = Audience.GENERAL_USER.value
-    confidence_policy: str = ConfidencePolicy.MEDIUM_PLUS.value
-    interaction_policy: str = InteractionPolicy.QUESTION_FIRST.value
-    criticism_level: str = CriticismLevel.NORMAL.value
-    custom: Dict[str, Any] = field(default_factory=dict)
+class PhaseState:
+    phase: str = Phase.CLARIFY.value
+    cycle: int = 1
+    scope: str = ""
+    scope_agreed: bool = False
+    clarify_questions: List[str] = field(default_factory=list)
+    notes: str = ""
+    updated_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "audience": self.audience,
-            "confidence_policy": self.confidence_policy,
-            "interaction_policy": self.interaction_policy,
-            "criticism_level": self.criticism_level,
-            "custom": dict(self.custom),
+            "phase": self.phase,
+            "cycle": self.cycle,
+            "scope": self.scope,
+            "scope_agreed": self.scope_agreed,
+            "clarify_questions": list(self.clarify_questions),
+            "notes": self.notes,
+            "updated_at": self.updated_at,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExtensionOptions":
+    def from_dict(cls, data: Dict[str, Any]) -> "PhaseState":
         return cls(
-            audience=str(data.get("audience", Audience.GENERAL_USER.value)),
-            confidence_policy=str(data.get("confidence_policy", ConfidencePolicy.MEDIUM_PLUS.value)),
-            interaction_policy=str(data.get("interaction_policy", InteractionPolicy.QUESTION_FIRST.value)),
-            criticism_level=str(data.get("criticism_level", CriticismLevel.NORMAL.value)),
-            custom=dict(data.get("custom") or {}),
+            phase=str(data.get("phase", Phase.CLARIFY.value)),
+            cycle=int(data.get("cycle", 1)),
+            scope=str(data.get("scope", "")),
+            scope_agreed=bool(data.get("scope_agreed", False)),
+            clarify_questions=list(data.get("clarify_questions") or []),
+            notes=str(data.get("notes", "")),
+            updated_at=float(data.get("updated_at", time.time())),
         )
 
 
 # =============================================================================
-# Aggregate: ProblemSpecification (v0.5)
+# Aggregate: ProblemSpecification (v0.9)
 # =============================================================================
 
 @dataclass
 class ProblemSpecification:
-    """
-    PSS v0.5 が最終的に生成する「思考条件仕様書」。
-    """
     identity: Identity = field(default_factory=Identity)
     objective: Objective = field(default_factory=Objective)
     constraints: Constraints = field(default_factory=Constraints)
     scope: Scope = field(default_factory=Scope)
     knowledge: KnowledgeState = field(default_factory=KnowledgeState)
     thinking_profile: ThinkingProfile = field(default_factory=ThinkingProfile)
-    agent_role: AgentRoleSpec = field(default_factory=AgentRoleSpec)
+    behavior: Behavior = field(default_factory=Behavior)
     output: OutputSpec = field(default_factory=OutputSpec)
     evaluation: EvaluationAxis = field(default_factory=EvaluationAxis)
-    extensions: ExtensionOptions = field(default_factory=ExtensionOptions)
+    phase_state: PhaseState = field(default_factory=PhaseState)
 
     created_at: float = field(default_factory=time.time)
-    schema: str = "pss.problem_specification/0.5"
-    version: str = "0.5"
+    schema: str = "pss.problem_specification/0.9"
+    version: str = "0.9"
 
     @property
     def problem(self) -> Identity:
@@ -535,14 +597,6 @@ class ProblemSpecification:
     @property
     def goal(self) -> Goal:
         return self.objective.goal
-
-    @property
-    def current_state(self) -> CurrentState:
-        return self.objective.current_state
-
-    @property
-    def difference(self) -> Difference:
-        return self.objective.difference
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -555,41 +609,28 @@ class ProblemSpecification:
             "scope": self.scope.to_dict(),
             "knowledge": self.knowledge.to_dict(),
             "thinking_profile": self.thinking_profile.to_dict(),
-            "agent_role": self.agent_role.to_dict(),
+            "behavior": self.behavior.to_dict(),
             "output": self.output.to_dict(),
             "evaluation": self.evaluation.to_dict(),
-            "extensions": self.extensions.to_dict(),
+            "phase_state": self.phase_state.to_dict(),
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ProblemSpecification":
-        if "identity" in data or "objective" in data:
-            return cls(
-                identity=Identity.from_dict(data.get("identity") or {}),
-                objective=Objective.from_dict(data.get("objective") or {}),
-                constraints=Constraints.from_dict(data.get("constraints") or {}),
-                scope=Scope.from_dict(data.get("scope") or {}),
-                knowledge=KnowledgeState.from_dict(data.get("knowledge") or {}),
-                thinking_profile=ThinkingProfile.from_dict(data.get("thinking_profile") or {}),
-                agent_role=AgentRoleSpec.from_dict(data.get("agent_role") or {}),
-                output=OutputSpec.from_dict(data.get("output") or {}),
-                evaluation=EvaluationAxis.from_dict(data.get("evaluation") or data.get("evaluation_axis") or {}),
-                extensions=ExtensionOptions.from_dict(data.get("extensions") or {}),
-                created_at=float(data.get("created_at", time.time())),
-                schema=str(data.get("schema", "pss.problem_specification/0.5")),
-                version=str(data.get("version", "0.5")),
-            )
         return cls(
-            identity=Identity(
-                title=str((data.get("problem") or {}).get("title", "")),
-                domain=str((data.get("problem") or {}).get("domain", "")),
-                description=str((data.get("problem") or {}).get("description", "")),
-            ),
+            identity=Identity.from_dict(data.get("identity") or {}),
+            objective=Objective.from_dict(data.get("objective") or {}),
+            constraints=Constraints.from_dict(data.get("constraints") or {}),
+            scope=Scope.from_dict(data.get("scope") or {}),
             knowledge=KnowledgeState.from_dict(data.get("knowledge") or {}),
-            evaluation=EvaluationAxis.from_dict(data.get("evaluation_axis") or {}),
+            thinking_profile=ThinkingProfile.from_dict(data.get("thinking_profile") or {}),
+            behavior=Behavior.from_dict(data.get("behavior") or data.get("agent_role") or data.get("extensions") or {}),
+            output=OutputSpec.from_dict(data.get("output") or {}),
+            evaluation=EvaluationAxis.from_dict(data.get("evaluation") or data.get("evaluation_axis") or {}),
+            phase_state=PhaseState.from_dict(data.get("phase_state") or {}),
             created_at=float(data.get("created_at", time.time())),
-            schema=str(data.get("schema", "pss.problem_specification/0.5")),
-            version=str(data.get("version", "0.5")),
+            schema=str(data.get("schema", "pss.problem_specification/0.9")),
+            version=str(data.get("version", "0.9")),
         )
 
     def summary(self) -> str:
@@ -598,20 +639,18 @@ class ProblemSpecification:
             f"Title       : {self.identity.title}",
             f"Domain      : {self.identity.domain}",
             f"Goal        : {self.objective.goal.description}",
-            f"Difference  : {self.objective.difference.description}",
-            f"Constraints : hard={len(self.constraints.hard)} soft={len(self.constraints.soft)} "
-            f"assumptions={len(self.constraints.assumptions)} risks={len(self.constraints.risks)}",
-            f"Role        : {self.agent_role.role}",
+            f"Phase       : {self.phase_state.phase} (cycle {self.phase_state.cycle})",
+            f"Role        : {self.behavior.role}",
+            f"Criticism   : {self.behavior.criticism_level}",
+            f"Confidence  : {self.behavior.confidence_policy}",
+            f"Interaction : {self.behavior.interaction_policy}",
             f"Thinking    : bias={self.thinking_profile.reasoning_bias} depth={self.thinking_profile.depth}",
-            f"Audience    : {self.extensions.audience}",
-            f"Confidence  : {self.extensions.confidence_policy}",
+            f"Evidence    : {self.thinking_profile.evidence_level}",
         ]
-        if self.knowledge.known:
-            lines.append(f"Known       : {len(self.knowledge.known)}")
+        if self.knowledge.observation:
+            lines.append(f"Observation : {len(self.knowledge.observation)}")
         if self.knowledge.unknown or self.knowledge.missing:
             lines.append(f"Unknown/Missing : {self.knowledge.unknown + self.knowledge.missing}")
-        if self.knowledge.assumption:
-            lines.append(f"Assumption  : {self.knowledge.assumption}")
         if self.evaluation.axes:
             axes = ", ".join(f"{k}={v}" for k, v in self.evaluation.axes.items())
             lines.append(f"Eval Axes   : {axes}")
