@@ -17,7 +17,7 @@ It is a lightweight, model-independent library for writing, validating, and impr
 
 ![PSS Architecture](docs/architecture.svg)
 
-See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md) · [docs/PSS_Detailed_Test_Results.md](docs/PSS_Detailed_Test_Results.md) · **[Behavioral tests](docs/tests/README.md)**
+See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md) · [docs/PSS_Detailed_Test_Results.md](docs/PSS_Detailed_Test_Results.md) · **[Behavioral tests](docs/tests/README.md)** · **[Usage](docs/USAGE.md)**
 
 ---
 
@@ -50,6 +50,17 @@ PSS produces a Problem Specification.
 Primary I/O can be a PLP Capsule (optional).
 Phase transitions and behavior rules are owned by the program, not the LLM.
 ```
+
+---
+
+## How to use (two patterns)
+
+1. **Human writes structured input** → `ProblemBuilder`
+2. **LLM converts natural language → PSS fields** (no guessing; unknowns go to Unknown/Missing) → `ProblemBuilder`
+
+PSS does **not** parse natural language. That step is human or a front-end LLM.
+
+Full guide: **[docs/USAGE.md](docs/USAGE.md)**
 
 ---
 
@@ -96,13 +107,11 @@ if report.overall.value != "PASS":
 prompt = compile_for_generic(spec)
 ```
 
-For local copy-paste testing without installing the package, use the single-file edition: [`pss_single.py`](pss_single.py).
+Single-file edition (copy-paste): [`pss_single.py`](pss_single.py)
 
 ---
 
 ## Behavioral tests
-
-LLMが先回りしないか・Gateで止まれるか・PredictionPolicyを守れるかを確認する5ケース:
 
 → **[docs/tests/](docs/tests/README.md)**
 
@@ -121,14 +130,14 @@ LLMが先回りしないか・Gateで止まれるか・PredictionPolicyを守れ
 | Symbol | Status | Replacement | Removal target |
 |--------|--------|-------------|----------------|
 | `ProblemBuilder.agent_role(...)` | Deprecated | `.behavior(role=..., role_description=...)` | v2.0 |
-| Old dict keys (`known`, `agent_role`, `extensions`, `evidence_policy`) | Accepted in `from_dict` for compatibility | New keys (`observation`, `behavior`, `evidence_level`) | v2.0 |
+| Old dict keys (`known`, `agent_role`, `extensions`, `evidence_policy`) | Accepted in `from_dict` | New keys (`observation`, `behavior`, `evidence_level`) | v2.0 |
 
 ---
 
 ## Versioning Policy
 
 - **v0.9** — package API freeze candidate
-- **v1.0.0-rc1** — single-file conceptual freeze (Mission / ThinkingProfile / PredictionPolicy / EvaluationCriteria)
+- **v1.0.0-rc1** — single-file conceptual freeze
 - **v1.x** — compatibility maintained
 - **v2.0** — may remove deprecated symbols
 
@@ -136,18 +145,18 @@ LLMが先回りしないか・Gateで止まれるか・PredictionPolicyを守れ
 
 ## Design Decisions
 
-- **No Executor in core** — specification library only
-- **Behavior as executable rules** — reduces model variance
-- **Observation vs Inference** — explicit uncertainty
-- **Gate diagnoses only** — never mutates the specification
-- **Validator / Fix Planner never mutate** — pure data out
+- **No Executor in core**
+- **Behavior as executable rules**
+- **Observation vs Inference**
+- **Gate diagnoses only — never mutates the specification**
 
 ---
 
 ## Status
 
-- Package: **0.9.0** · Schema `pss.problem_specification/0.9`
-- Single-file RC: **1.0.0-rc1** · Schema `pss.problem_specification/1.0`
+- Package: **0.9.0**
+- Single-file RC: **1.0.0-rc1**
+- Usage: [docs/USAGE.md](docs/USAGE.md)
 - Behavioral tests: [docs/tests](docs/tests/README.md)
 
 ---
