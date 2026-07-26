@@ -1,44 +1,21 @@
 """
-PSS ProblemBuilder (v0.5)
+PSS ProblemBuilder (v0.9)
 =========================
-段階的に ProblemSpecification を構築する Fluent Interface。
-v0.5: Identity / Objective / Constraints / Scope / Knowledge /
-      ThinkingProfile / AgentRole / Output / Extensions を正式サポート。
+Fluent Interface for building thinking-condition specifications.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
 from .core import (
-    Identity,
-    Objective,
-    CurrentState,
-    Goal,
-    Difference,
-    Constraints,
-    ConstraintSpec,
-    Scope,
-    KnowledgeState,
-    ThinkingProfile,
-    AgentRoleSpec,
-    OutputSpec,
-    EvaluationAxis,
-    ExtensionOptions,
-    ProblemSpecification,
-    ReasoningBias,
-    Depth,
-    EvidencePolicy,
-    AgentRole,
-    Audience,
-    ConfidencePolicy,
-    InteractionPolicy,
-    CriticismLevel,
+    Identity, Objective, CurrentState, Goal, Difference,
+    Constraints, ConstraintSpec, Scope, KnowledgeState,
+    ThinkingProfile, Behavior, BehaviorRules, OutputSpec,
+    EvaluationAxis, PhaseState, ProblemSpecification,
 )
 
 
 class ProblemBuilder:
-    """Fluent interface で思考条件仕様書を組み立てる。"""
-
     def __init__(self) -> None:
         self._identity = Identity()
         self._objective = Objective()
@@ -46,14 +23,12 @@ class ProblemBuilder:
         self._scope = Scope()
         self._knowledge = KnowledgeState()
         self._thinking = ThinkingProfile()
-        self._agent_role = AgentRoleSpec()
+        self._behavior = Behavior()
         self._output = OutputSpec()
         self._evaluation = EvaluationAxis()
-        self._extensions = ExtensionOptions()
+        self._phase = PhaseState()
 
-    # ------------------------------------------------------------------
-    # 1. Identity
-    # ------------------------------------------------------------------
+    # Identity
     def title(self, title: str) -> "ProblemBuilder":
         self._identity.title = title
         return self
@@ -67,89 +42,43 @@ class ProblemBuilder:
         return self
 
     def identity(self, title: str = "", domain: str = "", description: str = "") -> "ProblemBuilder":
-        if title:
-            self._identity.title = title
-        if domain:
-            self._identity.domain = domain
-        if description:
-            self._identity.description = description
+        if title: self._identity.title = title
+        if domain: self._identity.domain = domain
+        if description: self._identity.description = description
         return self
 
-    # ------------------------------------------------------------------
-    # 2. Objective
-    # ------------------------------------------------------------------
-    def current_state(
-        self,
-        description: str = "",
-        facts: Optional[Dict[str, Any]] = None,
-    ) -> "ProblemBuilder":
-        self._objective.current_state = CurrentState(
-            description=description,
-            facts=dict(facts or {}),
-        )
+    # Objective
+    def current_state(self, description: str = "", facts: Optional[Dict[str, Any]] = None) -> "ProblemBuilder":
+        self._objective.current_state = CurrentState(description=description, facts=dict(facts or {}))
         return self
 
-    def goal(
-        self,
-        description: str = "",
-        target: Optional[Dict[str, Any]] = None,
-        success_criteria: Optional[Sequence[str]] = None,
-    ) -> "ProblemBuilder":
-        self._objective.goal = Goal(
-            description=description,
-            target=dict(target or {}),
-            success_criteria=list(success_criteria or []),
-        )
+    def goal(self, description: str = "", target: Optional[Dict[str, Any]] = None, success_criteria: Optional[Sequence[str]] = None) -> "ProblemBuilder":
+        self._objective.goal = Goal(description=description, target=dict(target or {}), success_criteria=list(success_criteria or []))
         if success_criteria:
             self._objective.success_criteria = list(success_criteria)
         return self
 
-    def difference(
-        self,
-        description: str = "",
-        gaps: Optional[Sequence[str]] = None,
-        excesses: Optional[Sequence[str]] = None,
-        quantitative: Optional[Dict[str, float]] = None,
-    ) -> "ProblemBuilder":
-        self._objective.difference = Difference(
-            description=description,
-            gaps=list(gaps or []),
-            excesses=list(excesses or []),
-            quantitative=dict(quantitative or {}),
-        )
+    def difference(self, description: str = "", gaps: Optional[Sequence[str]] = None, excesses: Optional[Sequence[str]] = None, quantitative: Optional[Dict[str, float]] = None) -> "ProblemBuilder":
+        self._objective.difference = Difference(description=description, gaps=list(gaps or []), excesses=list(excesses or []), quantitative=dict(quantitative or {}))
         return self
 
-    # ------------------------------------------------------------------
-    # 3. Constraints
-    # ------------------------------------------------------------------
-    def add_constraint(
-        self,
-        statement: str,
-        kind: str = "hard",
-        priority: int = 0,
-        **metadata: Any,
-    ) -> "ProblemBuilder":
+    # Constraints
+    def add_constraint(self, statement: str, kind: str = "hard", priority: int = 0, **metadata: Any) -> "ProblemBuilder":
         c = ConstraintSpec(statement=statement, kind=kind, priority=priority, metadata=dict(metadata))
-        if kind == "hard":
-            self._constraints.hard.append(c)
-        elif kind == "soft":
-            self._constraints.soft.append(c)
-        elif kind == "assumption":
-            self._constraints.assumptions.append(c)
-        elif kind == "risk":
-            self._constraints.risks.append(c)
-        else:
-            self._constraints.hard.append(c)
+        if kind == "hard": self._constraints.hard.append(c)
+        elif kind == "soft": self._constraints.soft.append(c)
+        elif kind == "assumption": self._constraints.assumptions.append(c)
+        elif kind == "risk": self._constraints.risks.append(c)
+        else: self._constraints.hard.append(c)
         return self
 
     def add_default_safety_constraints(self) -> "ProblemBuilder":
-        defaults = [
+        for stmt, pri in [
             ("推測しない。不明な点は不明と明示する。", 10),
             ("不可能なことは不可能と言う。", 10),
             ("制約違反を隠さない。", 10),
             ("不足情報を明示する。", 9),
-        ]
-        for stmt, pri in defaults:
+        ]:
             self.add_constraint(stmt, kind="hard", priority=pri)
         return self
 
@@ -162,54 +91,29 @@ class ProblemBuilder:
     def risk(self, statement: str, priority: int = 0) -> "ProblemBuilder":
         return self.add_constraint(statement, kind="risk", priority=priority)
 
-    # ------------------------------------------------------------------
-    # 4. Scope
-    # ------------------------------------------------------------------
-    def scope(
-        self,
-        in_scope: Optional[Sequence[str]] = None,
-        out_of_scope: Optional[Sequence[str]] = None,
-        priority: Optional[Sequence[str]] = None,
-        allowed_changes: Optional[Sequence[str]] = None,
-        notes: str = "",
-    ) -> "ProblemBuilder":
-        if in_scope is not None:
-            self._scope.in_scope = list(in_scope)
-        if out_of_scope is not None:
-            self._scope.out_of_scope = list(out_of_scope)
-        if priority is not None:
-            self._scope.priority = list(priority)
-        if allowed_changes is not None:
-            self._scope.allowed_changes = list(allowed_changes)
-        if notes:
-            self._scope.notes = notes
+    # Scope
+    def scope(self, in_scope: Optional[Sequence[str]] = None, out_of_scope: Optional[Sequence[str]] = None, priority: Optional[Sequence[str]] = None, allowed_changes: Optional[Sequence[str]] = None, notes: str = "") -> "ProblemBuilder":
+        if in_scope is not None: self._scope.in_scope = list(in_scope)
+        if out_of_scope is not None: self._scope.out_of_scope = list(out_of_scope)
+        if priority is not None: self._scope.priority = list(priority)
+        if allowed_changes is not None: self._scope.allowed_changes = list(allowed_changes)
+        if notes: self._scope.notes = notes
         return self
 
-    # ------------------------------------------------------------------
-    # 5. Knowledge
-    # ------------------------------------------------------------------
-    def knowledge(
-        self,
-        known: Optional[Sequence[str]] = None,
-        unknown: Optional[Sequence[str]] = None,
-        missing: Optional[Sequence[str]] = None,
-        assumption: Optional[Sequence[str]] = None,
-        references: Optional[Sequence[str]] = None,
-    ) -> "ProblemBuilder":
+    # Knowledge
+    def knowledge(self, observation: Optional[Sequence[str]] = None, inference: Optional[Sequence[str]] = None, assumption: Optional[Sequence[str]] = None, unknown: Optional[Sequence[str]] = None, missing: Optional[Sequence[str]] = None, references: Optional[Sequence[str]] = None, known: Optional[Sequence[str]] = None) -> "ProblemBuilder":
         if known is not None:
-            self._knowledge.known = list(known)
-        if unknown is not None:
-            self._knowledge.unknown = list(unknown)
-        if missing is not None:
-            self._knowledge.missing = list(missing)
-        if assumption is not None:
-            self._knowledge.assumption = list(assumption)
-        if references is not None:
-            self._knowledge.references = list(references)
+            self._knowledge.observation = list(known)
+        if observation is not None: self._knowledge.observation = list(observation)
+        if inference is not None: self._knowledge.inference = list(inference)
+        if assumption is not None: self._knowledge.assumption = list(assumption)
+        if unknown is not None: self._knowledge.unknown = list(unknown)
+        if missing is not None: self._knowledge.missing = list(missing)
+        if references is not None: self._knowledge.references = list(references)
         return self
 
     def known(self, items: Sequence[str]) -> "ProblemBuilder":
-        self._knowledge.known = list(items)
+        self._knowledge.observation = list(items)
         return self
 
     def unknown(self, items: Sequence[str]) -> "ProblemBuilder":
@@ -220,108 +124,77 @@ class ProblemBuilder:
         self._knowledge.assumption = list(items)
         return self
 
-    # ------------------------------------------------------------------
-    # 6. Thinking Profile
-    # ------------------------------------------------------------------
-    def thinking_profile(
-        self,
-        reasoning_bias: str = "balanced",
-        depth: str = "normal",
-        evidence_policy: str = "observation_first",
-        custom_bias_note: str = "",
-    ) -> "ProblemBuilder":
-        self._thinking = ThinkingProfile(
-            reasoning_bias=reasoning_bias,
-            depth=depth,
-            evidence_policy=evidence_policy,
-            custom_bias_note=custom_bias_note,
-        )
+    # Thinking
+    def thinking_profile(self, reasoning_bias: str = "balanced", depth: str = "normal", evidence_level: str = "observation_first", custom_bias_note: str = "") -> "ProblemBuilder":
+        self._thinking = ThinkingProfile(reasoning_bias=reasoning_bias, depth=depth, evidence_level=evidence_level, custom_bias_note=custom_bias_note)
         return self
 
-    # ------------------------------------------------------------------
-    # 7. Agent Role
-    # ------------------------------------------------------------------
-    def agent_role(self, role: str = "collaborator", custom_description: str = "") -> "ProblemBuilder":
-        self._agent_role = AgentRoleSpec(role=role, custom_description=custom_description)
-        return self
-
-    # ------------------------------------------------------------------
-    # 8. Output
-    # ------------------------------------------------------------------
-    def output(
+    # Behavior
+    def behavior(
         self,
-        format: str = "markdown",
-        style: str = "clear",
-        length: str = "medium",
-        language: str = "ja",
-        required_sections: Optional[Sequence[str]] = None,
-    ) -> "ProblemBuilder":
-        self._output = OutputSpec(
-            format=format,
-            style=style,
-            length=length,
-            language=language,
-            required_sections=list(required_sections or []),
-        )
-        return self
-
-    # ------------------------------------------------------------------
-    # 9. Evaluation
-    # ------------------------------------------------------------------
-    def evaluation_axis(
-        self,
-        axes: Dict[str, float],
-        notes: str = "",
-    ) -> "ProblemBuilder":
-        self._evaluation = EvaluationAxis(axes=dict(axes), notes=notes)
-        return self
-
-    # ------------------------------------------------------------------
-    # 10. Extensions
-    # ------------------------------------------------------------------
-    def extensions(
-        self,
-        audience: str = "general_user",
+        role: str = "collaborator",
+        role_description: str = "",
         confidence_policy: str = "medium_plus",
         interaction_policy: str = "question_first",
         criticism_level: str = "1_normal",
-        **custom: Any,
+        question_first: bool = True,
+        proposal_level: str = "normal",
+        challenge_probability: str = "medium",
+        if_unknown: str = "answer_unknown",
+        if_assumption: str = "mark_assumption",
+        if_scope_violation: str = "stop",
+        if_missing_required: str = "ask",
+        if_low_confidence: str = "state_confidence",
     ) -> "ProblemBuilder":
-        self._extensions = ExtensionOptions(
-            audience=audience,
+        self._behavior = Behavior(
+            role=role,
+            role_description=role_description,
             confidence_policy=confidence_policy,
             interaction_policy=interaction_policy,
             criticism_level=criticism_level,
-            custom=dict(custom),
+            question_first=question_first,
+            proposal_level=proposal_level,
+            challenge_probability=challenge_probability,
+            rules=BehaviorRules(
+                if_unknown=if_unknown,
+                if_assumption=if_assumption,
+                if_scope_violation=if_scope_violation,
+                if_missing_required=if_missing_required,
+                if_low_confidence=if_low_confidence,
+            ),
         )
         return self
 
-    def audience(self, value: str) -> "ProblemBuilder":
-        self._extensions.audience = value
+    def agent_role(self, role: str = "collaborator", custom_description: str = "") -> "ProblemBuilder":
+        """Deprecated: use .behavior(role=..., role_description=...) instead.
+        Kept for compatibility in v0.9 / v1.x. Planned removal in v2.0.
+        """
+        self._behavior.role = role
+        self._behavior.role_description = custom_description
         return self
 
-    def confidence_policy(self, value: str) -> "ProblemBuilder":
-        self._extensions.confidence_policy = value
+    # Output
+    def output(self, format: str = "markdown", style: str = "clear", length: str = "medium", language: str = "ja", required_sections: Optional[Sequence[str]] = None) -> "ProblemBuilder":
+        self._output = OutputSpec(format=format, style=style, length=length, language=language, required_sections=list(required_sections or []))
         return self
 
-    def interaction_policy(self, value: str) -> "ProblemBuilder":
-        self._extensions.interaction_policy = value
+    # Evaluation
+    def evaluation_axis(self, axes: Dict[str, float], notes: str = "") -> "ProblemBuilder":
+        self._evaluation = EvaluationAxis(axes=dict(axes), notes=notes)
         return self
 
-    def criticism_level(self, value: str) -> "ProblemBuilder":
-        self._extensions.criticism_level = value
+    # Phase
+    def phase(self, phase: str = "1_clarify", cycle: int = 1, scope: str = "", scope_agreed: bool = False) -> "ProblemBuilder":
+        self._phase = PhaseState(phase=phase, cycle=cycle, scope=scope, scope_agreed=scope_agreed)
         return self
 
-    # ------------------------------------------------------------------
-    # Build
-    # ------------------------------------------------------------------
     def build(self) -> ProblemSpecification:
-        # merge missing into unknown for safety
         knowledge = KnowledgeState(
-            known=list(self._knowledge.known),
+            observation=list(self._knowledge.observation),
+            inference=list(self._knowledge.inference),
+            assumption=list(self._knowledge.assumption),
             unknown=list(self._knowledge.unknown),
             missing=list(self._knowledge.missing),
-            assumption=list(self._knowledge.assumption),
             references=list(self._knowledge.references),
         )
         for m in knowledge.missing:
@@ -335,8 +208,8 @@ class ProblemBuilder:
             scope=self._scope,
             knowledge=knowledge,
             thinking_profile=self._thinking,
-            agent_role=self._agent_role,
+            behavior=self._behavior,
             output=self._output,
             evaluation=self._evaluation,
-            extensions=self._extensions,
+            phase_state=self._phase,
         )
