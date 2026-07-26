@@ -9,7 +9,7 @@ It is not a prompt template.
 It is not an agent framework.  
 It is a lightweight, model-independent library for writing, validating, and improving problem specifications.
 
-**Current version: 0.9.0** (API freeze toward v1.0)
+**Current version: 0.9.0** (API freeze toward v1.0) · single-file RC: **1.0.0-rc1**
 
 ---
 
@@ -17,7 +17,7 @@ It is a lightweight, model-independent library for writing, validating, and impr
 
 ![PSS Architecture](docs/architecture.svg)
 
-See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md) · [docs/PSS_Detailed_Test_Results.md](docs/PSS_Detailed_Test_Results.md)
+See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md) · [docs/PSS_Detailed_Test_Results.md](docs/PSS_Detailed_Test_Results.md) · **[Behavioral tests](docs/tests/README.md)**
 
 ---
 
@@ -100,6 +100,22 @@ For local copy-paste testing without installing the package, use the single-file
 
 ---
 
+## Behavioral tests
+
+LLMが先回りしないか・Gateで止まれるか・PredictionPolicyを守れるかを確認する5ケース:
+
+→ **[docs/tests/](docs/tests/README.md)**
+
+| # | ケース | 要点 |
+|---|--------|------|
+| 01 | 中古車購入 | Gate BLOCK / 車種を勝手に勧めない |
+| 02 | Webリリース | Gate PASS / Scope内のみ |
+| 03 | 株価予測 | Gate PASS だが予測拒否 |
+| 04 | コードレビュー | Scope逸脱しない |
+| 05 | 性能比較 | 根拠なしで断定しない |
+
+---
+
 ## Deprecations (v0.9)
 
 | Symbol | Status | Replacement | Removal target |
@@ -107,49 +123,32 @@ For local copy-paste testing without installing the package, use the single-file
 | `ProblemBuilder.agent_role(...)` | Deprecated | `.behavior(role=..., role_description=...)` | v2.0 |
 | Old dict keys (`known`, `agent_role`, `extensions`, `evidence_policy`) | Accepted in `from_dict` for compatibility | New keys (`observation`, `behavior`, `evidence_level`) | v2.0 |
 
-Deprecated symbols continue to work in v0.9 and the entire v1.x series.
-
 ---
 
 ## Versioning Policy
 
-PSS follows **Semantic Versioning**:
-
-- **v0.9** — API freeze candidate (current)
-- **v1.x** — Public API compatibility is maintained. Deprecated symbols remain available.
-- **v2.0** — May remove deprecated symbols and make intentional breaking changes.
+- **v0.9** — package API freeze candidate
+- **v1.0.0-rc1** — single-file conceptual freeze (Mission / ThinkingProfile / PredictionPolicy / EvaluationCriteria)
+- **v1.x** — compatibility maintained
+- **v2.0** — may remove deprecated symbols
 
 ---
 
 ## Design Decisions
 
-- **No Executor in core** — Keeps PSS a specification library.
-- **Behavior as executable rules** — Reduces model-to-model variance.
-- **Observation vs Inference** — Makes “I don’t know” and “I am assuming” explicit.
-- **Validator / Fix Planner never mutate the specification** — Pure diagnosis and planning.
-
----
-
-## Relationship with PLP
-
-PSS works standalone.  
-When systems need structured exchange, a PSS specification can ride inside a PLP Capsule without changing the thinking conditions.
+- **No Executor in core** — specification library only
+- **Behavior as executable rules** — reduces model variance
+- **Observation vs Inference** — explicit uncertainty
+- **Gate diagnoses only** — never mutates the specification
+- **Validator / Fix Planner never mutate** — pure data out
 
 ---
 
 ## Status
 
-- Version: **0.9.0**
-- Schema: `pss.problem_specification/0.9`
-- Package tests: 17 passed
-- Single-file implementation test: **7/8 pass (87.5%)** — design intent verified  
-  → details: [docs/PSS_Detailed_Test_Results.md](docs/PSS_Detailed_Test_Results.md)
-- Public API is considered stable for the upcoming v1.0 release.
-
-Roadmap sketch:
-- **v1.0** — Official stable release (same surface as 0.9)
-- **v1.1+** — More examples, documentation polish
-- **v2.0** — Remove deprecated APIs
+- Package: **0.9.0** · Schema `pss.problem_specification/0.9`
+- Single-file RC: **1.0.0-rc1** · Schema `pss.problem_specification/1.0`
+- Behavioral tests: [docs/tests](docs/tests/README.md)
 
 ---
 
