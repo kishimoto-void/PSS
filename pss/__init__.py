@@ -1,119 +1,110 @@
 """
-PSS — Problem Specification System (v0.5)
+PSS — Problem Specification System (v0.9)
 =========================================
-思考条件を定義する共通仕様。
+思考条件を定義し、検証する共通仕様。
 
-設計思想:
-  PSS は「LLMを制御する仕様」ではなく、「思考条件を定義する仕様」である。
-  人間 / Agent / LLM が同じ思考条件を共有できるようにする。
+Public API (stable toward v1.0)
+-------------------------------
+    from pss import (
+        ProblemSpecification,
+        ProblemBuilder,
+        validate,
+        plan_fixes,
+        to_capsule,
+        from_capsule,
+        compile_for_generic,
+        render_specification,
+    )
+
+Other symbols are available but considered internal / transitional.
 """
 
 from .core import (
-    # Identity
+    ProblemSpecification,
     Identity,
-    # Objective
     Objective,
     CurrentState,
     Goal,
     Difference,
-    # Constraints
     Constraints,
     ConstraintSpec,
-    # Scope
     Scope,
-    # Knowledge
     KnowledgeState,
-    # Thinking Profile
     ThinkingProfile,
+    Behavior,
+    BehaviorRules,
+    OutputSpec,
+    EvaluationAxis,
+    PhaseState,
+    Phase,
     ReasoningBias,
     Depth,
-    EvidencePolicy,
-    # Agent Role
-    AgentRoleSpec,
+    EvidenceLevel,
     AgentRole,
-    # Output
-    OutputSpec,
-    # Evaluation
-    EvaluationAxis,
-    # Extensions
-    ExtensionOptions,
     Audience,
     ConfidencePolicy,
     InteractionPolicy,
     CriticismLevel,
-    # Aggregate
-    ProblemSpecification,
 )
 from .builder import ProblemBuilder
 from .transport import (
-    from_capsule,
     to_capsule,
-    from_plp_capsule,
+    from_capsule,
     to_plp_capsule,
+    from_plp_capsule,
     problem_spec_to_dict,
     problem_spec_to_json,
     render_specification,
 )
-from .phase import (
-    Phase,
-    PhaseState,
-    PhaseController,
-    PHASE_RULES,
-)
+from .adapter import compile_for_generic
+from .validator import validate, ValidationReport, Finding, Severity
+from .planner import plan_fixes, FixPlan, FixStep, FixAction
+
+# Transitional / internal
 from .adapter import (
-    compile_for_generic,
     compile_for_gpt,
     compile_for_claude,
     compile_for_gemini,
     compile_for_local,
     compile_phase_only,
 )
+from .validator import (
+    CompositeValidator,
+    ScopeValidator,
+    PhaseValidator,
+    BehaviorValidator,
+    KnowledgeValidator,
+    ConstraintValidator,
+    OutputValidator,
+    IdentityValidator,
+    ObjectiveValidator,
+)
+from .planner import FixPlanner
+from .phase import Phase as PhaseEnum, PhaseState as PhaseStateLegacy, PhaseController, PHASE_RULES
+
+__version__ = "0.9.0"
 
 __all__ = [
-    # core
+    "ProblemSpecification",
+    "ProblemBuilder",
+    "validate",
+    "plan_fixes",
+    "to_capsule",
+    "from_capsule",
+    "compile_for_generic",
+    "render_specification",
+    "ValidationReport",
+    "Finding",
+    "Severity",
+    "FixPlan",
+    "FixStep",
+    "FixAction",
     "Identity",
     "Objective",
-    "CurrentState",
-    "Goal",
-    "Difference",
-    "Constraints",
-    "ConstraintSpec",
-    "Scope",
     "KnowledgeState",
-    "ThinkingProfile",
-    "ReasoningBias",
-    "Depth",
-    "EvidencePolicy",
-    "AgentRoleSpec",
-    "AgentRole",
-    "OutputSpec",
-    "EvaluationAxis",
-    "ExtensionOptions",
-    "Audience",
-    "ConfidencePolicy",
-    "InteractionPolicy",
-    "CriticismLevel",
-    "ProblemSpecification",
-    # builder
-    "ProblemBuilder",
-    # transport
-    "from_capsule",
-    "to_capsule",
-    "from_plp_capsule",
-    "to_plp_capsule",
-    "problem_spec_to_dict",
-    "problem_spec_to_json",
-    "render_specification",
-    # phase
-    "Phase",
+    "Behavior",
+    "BehaviorRules",
     "PhaseState",
-    "PhaseController",
-    "PHASE_RULES",
-    # adapter
-    "compile_for_generic",
-    "compile_for_gpt",
-    "compile_for_claude",
-    "compile_for_gemini",
-    "compile_for_local",
-    "compile_phase_only",
+    "Phase",
+    "__version__",
 ]
