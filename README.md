@@ -9,13 +9,35 @@ It is not a prompt template.
 It is not an agent framework.  
 It is a lightweight, model-independent library for writing, validating, and improving problem specifications.
 
+**Current version: 0.9.0** (API freeze toward v1.0)
+
 ---
 
 ## Architecture
 
 ![PSS Architecture](docs/architecture.svg)
 
-See also: [docs/architecture.svg](docs/architecture.svg)
+See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md)
+
+---
+
+## Public API (frozen toward v1.0)
+
+```python
+from pss import (
+    ProblemSpecification,
+    ProblemBuilder,
+    validate,
+    plan_fixes,
+    to_capsule,
+    from_capsule,
+    compile_for_generic,
+    render_specification,
+)
+```
+
+These eight symbols form the **official public surface**.  
+Other imports remain available for advanced use but are not part of the frozen contract.
 
 ---
 
@@ -29,14 +51,9 @@ Primary I/O can be a PLP Capsule (optional).
 Phase transitions and behavior rules are owned by the program, not the LLM.
 ```
 
-The same specification can be read by a human, an agent, or an LLM.  
-This is the main reason PSS exists.
-
 ---
 
 ## Layers
-
-PSS keeps responsibilities strictly separated:
 
 | Layer            | Responsibility                              |
 |------------------|---------------------------------------------|
@@ -46,39 +63,7 @@ PSS keeps responsibilities strictly separated:
 | **Validator**    | What is wrong or incomplete (diagnosis only)|
 | **Fix Planner**  | How to fix it (plan only, no side effects)  |
 
-Executor, CLI, and IDE integrations are intentionally **outside** the core.  
-They should live in separate packages if needed.
-
----
-
-## Structure of a Specification
-
-```text
-ProblemSpecification
-├── Identity
-├── Objective          (Goal / Current State / Difference)
-├── Constraints        (Hard / Soft / Assumptions / Risks)
-├── Scope
-├── Knowledge          (Observation / Inference / Assumption / Unknown / Missing)
-├── ThinkingProfile
-├── Behavior           (executable rules: if_unknown, if_assumption, …)
-├── Output
-├── Evaluation
-└── PhaseState
-```
-
-**Behavior** is deliberately written as executable rules, not decorative labels:
-
-```yaml
-rules:
-  if_unknown: answer_unknown
-  if_assumption: mark_assumption
-  if_scope_violation: stop
-  if_missing_required: ask
-  if_low_confidence: state_confidence
-```
-
-**Knowledge** separates observation from inference to reduce premature conclusions.
+Executor, CLI, and IDE integrations live **outside** the core.
 
 ---
 
@@ -87,7 +72,6 @@ rules:
 ```python
 from pss import ProblemBuilder, validate, plan_fixes, compile_for_generic
 
-# 1. Build
 spec = (
     ProblemBuilder()
     .identity(title="進捗報告資料の作成", domain="business.document")
@@ -105,83 +89,63 @@ spec = (
     .build()
 )
 
-# 2. Validate
 report = validate(spec)
-print(report.summary())
-
-# 3. Plan fixes (if needed)
 if report.overall.value != "PASS":
-    plan = plan_fixes(report)
-    print(plan.summary())
+    print(plan_fixes(report).summary())
 
-# 4. Compile for an LLM
 prompt = compile_for_generic(spec)
 ```
 
 ---
 
-## Lifecycle
+## Deprecations (v0.9)
 
-```text
-Builder          → write specification
-Validator        → diagnose (PASS / WARN / ERROR)
-Fix Planner      → produce Fix Plan (pure data)
-Executor*        → human / LLM / IDE / CI applies the plan
-```
+| Symbol | Status | Replacement | Removal target |
+|--------|--------|-------------|----------------|
+| `ProblemBuilder.agent_role(...)` | Deprecated | `.behavior(role=..., role_description=...)` | v2.0 |
+| Old dict keys (`known`, `agent_role`, `extensions`, `evidence_policy`) | Accepted in `from_dict` for compatibility | New keys (`observation`, `behavior`, `evidence_level`) | v2.0 |
 
-\* Executor is **not** part of the core library.
-
-Validator never mutates the specification.  
-Fix Planner never mutates the specification.  
-Both return pure data so that different tools can consume them safely.
+Deprecated symbols continue to work in v0.9 and the entire v1.x series.
 
 ---
 
-## Design Decisions (Why these boundaries)
+## Versioning Policy
 
-- **No Executor in core**  
-  Keeps PSS a specification library. Execution strategies differ by environment.
+PSS follows **Semantic Versioning**:
 
-- **Severity stays simple**  
-  `ERROR` / `WARN` / `INFO` is enough for now.  
-  Finer levels (`blocker` etc.) can be added later without breaking existing code.
+- **v0.9** — API freeze candidate (current)
+- **v1.x** — Public API compatibility is maintained. Deprecated symbols remain available.
+- **v2.0** — May remove deprecated symbols and make intentional breaking changes.
 
-- **Behavior as rules, not roles alone**  
-  Roles are useful, but concrete `if_…` rules reduce model-to-model variance.
+---
 
-- **Observation vs Inference**  
-  Most LLMs jump from observation to inference unconsciously.  
-  Explicit separation makes “I don’t know” and “I am assuming” visible.
+## Design Decisions
+
+- **No Executor in core** — Keeps PSS a specification library.
+- **Behavior as executable rules** — Reduces model-to-model variance.
+- **Observation vs Inference** — Makes “I don’t know” and “I am assuming” explicit.
+- **Validator / Fix Planner never mutate the specification** — Pure diagnosis and planning.
 
 ---
 
 ## Relationship with PLP
 
-PSS can be used completely standalone.
-
-When systems need to exchange structured information, a PSS specification can be placed inside a PLP Capsule without changing the thinking conditions themselves.
-
-```text
-PSS  → standalone thinking-condition framework
-PLP  → transport & interoperability layer (optional)
-```
+PSS works standalone.  
+When systems need structured exchange, a PSS specification can ride inside a PLP Capsule without changing the thinking conditions.
 
 ---
 
-## Status & Stability
+## Status
 
-- Current version: **0.7**
-- Core schema: `pss.problem_specification/0.6`
-- Public API is approaching **v1.0** stability.
+- Version: **0.9.0**
+- Schema: `pss.problem_specification/0.9`
+- Tests: 17 passed
+- Public API is considered stable for the upcoming v1.0 release.
 
-From this point forward the priority is:
-
-1. Freeze the public API surface
-2. Unify naming
-3. Strengthen tests and examples
-4. Keep the core small
-
-New major features will be added cautiously and preferably in satellite packages.
+Roadmap sketch:
+- **v1.0** — Official stable release (same surface as 0.9)
+- **v1.1+** — More examples, documentation polish
+- **v2.0** — Remove deprecated APIs
 
 ---
 
