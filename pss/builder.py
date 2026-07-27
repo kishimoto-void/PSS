@@ -1,7 +1,10 @@
 """
-PSS ProblemBuilder (v0.9)
-=========================
+PSS ProblemBuilder (v0.9.1)
+===========================
 Fluent Interface for building thinking-condition specifications.
+
+RC 1.0-rc1 methods (main_mission, prediction_policy, ...) added
+while keeping full backward compatibility with 0.9 API.
 """
 
 from __future__ import annotations
@@ -11,7 +14,8 @@ from .core import (
     Identity, Objective, CurrentState, Goal, Difference,
     Constraints, ConstraintSpec, Scope, KnowledgeState,
     ThinkingProfile, Behavior, BehaviorRules, OutputSpec,
-    EvaluationAxis, PhaseState, ProblemSpecification,
+    EvaluationAxis, EvaluationCriteria, PhaseState, ProblemSpecification,
+    Mission, SubMission, PredictionPolicy,
 )
 
 
@@ -19,13 +23,16 @@ class ProblemBuilder:
     def __init__(self) -> None:
         self._identity = Identity()
         self._objective = Objective()
+        self._mission = Mission()
         self._constraints = Constraints()
         self._scope = Scope()
         self._knowledge = KnowledgeState()
         self._thinking = ThinkingProfile()
+        self._prediction = PredictionPolicy()
         self._behavior = Behavior()
         self._output = OutputSpec()
         self._evaluation = EvaluationAxis()
+        self._evaluation_criteria = EvaluationCriteria()
         self._phase = PhaseState()
 
     # Identity
@@ -47,7 +54,7 @@ class ProblemBuilder:
         if description: self._identity.description = description
         return self
 
-    # Objective
+    # Objective (legacy)
     def current_state(self, description: str = "", facts: Optional[Dict[str, Any]] = None) -> "ProblemBuilder":
         self._objective.current_state = CurrentState(description=description, facts=dict(facts or {}))
         return self
@@ -56,10 +63,30 @@ class ProblemBuilder:
         self._objective.goal = Goal(description=description, target=dict(target or {}), success_criteria=list(success_criteria or []))
         if success_criteria:
             self._objective.success_criteria = list(success_criteria)
+        # also mirror into Mission for RC compatibility
+        if description:
+            self._mission.goal = description
+        if success_criteria:
+            self._mission.success_criteria = list(success_criteria)
         return self
 
     def difference(self, description: str = "", gaps: Optional[Sequence[str]] = None, excesses: Optional[Sequence[str]] = None, quantitative: Optional[Dict[str, float]] = None) -> "ProblemBuilder":
         self._objective.difference = Difference(description=description, gaps=list(gaps or []), excesses=list(excesses or []), quantitative=dict(quantitative or {}))
+        return self
+
+    # Mission (RC)
+    def main_mission(self, goal: str = "", priority: str = "normal", success_criteria: Optional[Sequence[str]] = None) -> "ProblemBuilder":
+        self._mission.goal = goal
+        self._mission.priority = priority
+        if success_criteria is not None:
+            self._mission.success_criteria = list(success_criteria)
+        # keep Objective in sync for compatibility
+        if goal:
+            self._objective.goal.description = goal
+        return self
+
+    def add_sub_mission(self, kind: str = "", description: str = "", priority: str = "normal") -> "ProblemBuilder":
+        self._mission.sub_missions.append(SubMission(kind=kind, description=description, priority=priority))
         return self
 
     # Constraints
@@ -129,6 +156,16 @@ class ProblemBuilder:
         self._thinking = ThinkingProfile(reasoning_bias=reasoning_bias, depth=depth, evidence_level=evidence_level, custom_bias_note=custom_bias_note)
         return self
 
+    # PredictionPolicy (RC)
+    def prediction_policy(self, minimum_evidence: str = "medium", when_uncertain: str = "ask", allow_forward_looking: bool = False, notes: str = "") -> "ProblemBuilder":
+        self._prediction = PredictionPolicy(
+            minimum_evidence=minimum_evidence,
+            when_uncertain=when_uncertain,
+            allow_forward_looking=allow_forward_looking,
+            notes=notes,
+        )
+        return self
+
     # Behavior
     def behavior(
         self,
@@ -181,6 +218,12 @@ class ProblemBuilder:
     # Evaluation
     def evaluation_axis(self, axes: Dict[str, float], notes: str = "") -> "ProblemBuilder":
         self._evaluation = EvaluationAxis(axes=dict(axes), notes=notes)
+        self._evaluation_criteria = EvaluationCriteria(criteria=dict(axes), notes=notes)
+        return self
+
+    def evaluation_criteria(self, criteria: Dict[str, float], notes: str = "") -> "ProblemBuilder":
+        self._evaluation_criteria = EvaluationCriteria(criteria=dict(criteria), notes=notes)
+        self._evaluation = EvaluationAxis(axes=dict(criteria), notes=notes)
         return self
 
     # Phase
@@ -204,12 +247,15 @@ class ProblemBuilder:
         return ProblemSpecification(
             identity=self._identity,
             objective=self._objective,
+            mission=self._mission,
             constraints=self._constraints,
             scope=self._scope,
             knowledge=knowledge,
             thinking_profile=self._thinking,
+            prediction_policy=self._prediction,
             behavior=self._behavior,
             output=self._output,
             evaluation=self._evaluation,
+            evaluation_criteria=self._evaluation_criteria,
             phase_state=self._phase,
         )
