@@ -1,6 +1,6 @@
 """
-PSS Core Data Structures (v0.9)
-===============================
+PSS Core Data Structures (v0.9 + RC pillars toward 1.0)
+=====================================================
 思考条件を定義する共通仕様。
 
 設計思想:
@@ -12,6 +12,12 @@ v0.6 の主な変更:
   - Behavior を新設（Role + Confidence + Interaction + Criticism を行動規則として統合）
   - Knowledge を Observation / Inference / Assumption / Unknown に明確分離
   - 宣言的ラベルから「行動規則」へ寄せる
+
+v0.9.1 (sequential Step 2):
+  - RC 1.0-rc1 pillars を非破壊的に追加:
+    Mission / SubMission / PredictionPolicy / EvaluationCriteria
+  - Gate は diagnosis-only（仕様を変更しない）
+  - 既存 Objective / EvaluationAxis は互換のために残置
 """
 
 from __future__ import annotations
@@ -97,6 +103,12 @@ class CriticismLevel(str, Enum):
     DEVILS_ADVOCATE = "3_devils_advocate"
 
 
+class GateDecision(str, Enum):
+    PASS = "PASS"
+    BLOCK = "BLOCK"
+    ASK = "ASK"
+
+
 # =============================================================================
 # 1. Identity / Problem
 # =============================================================================
@@ -130,7 +142,7 @@ class Identity:
 
 
 # =============================================================================
-# 2. Objective
+# 2. Objective (legacy, kept for compatibility)
 # =============================================================================
 
 @dataclass
@@ -230,6 +242,64 @@ class Objective:
             current_state=CurrentState.from_dict(data.get("current_state") or {}),
             difference=Difference.from_dict(data.get("difference") or {}),
             success_criteria=list(data.get("success_criteria") or []),
+        )
+
+
+# =============================================================================
+# 2b. Mission (RC 1.0-rc1 pillar) — coexists with Objective
+# =============================================================================
+
+@dataclass
+class SubMission:
+    kind: str = ""
+    description: str = ""
+    priority: str = "normal"  # critical / high / normal / low
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "description": self.description,
+            "priority": self.priority,
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SubMission":
+        return cls(
+            kind=str(data.get("kind", "")),
+            description=str(data.get("description", "")),
+            priority=str(data.get("priority", "normal")),
+            metadata=dict(data.get("metadata") or {}),
+        )
+
+
+@dataclass
+class Mission:
+    """Main goal + optional sub-missions (RC pillar)."""
+    goal: str = ""
+    priority: str = "normal"
+    success_criteria: List[str] = field(default_factory=list)
+    sub_missions: List[SubMission] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "goal": self.goal,
+            "priority": self.priority,
+            "success_criteria": list(self.success_criteria),
+            "sub_missions": [s.to_dict() for s in self.sub_missions],
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Mission":
+        return cls(
+            goal=str(data.get("goal", "")),
+            priority=str(data.get("priority", "normal")),
+            success_criteria=list(data.get("success_criteria") or []),
+            sub_missions=[SubMission.from_dict(s) for s in (data.get("sub_missions") or [])],
+            metadata=dict(data.get("metadata") or {}),
         )
 
 
@@ -395,6 +465,36 @@ class ThinkingProfile:
 
 
 # =============================================================================
+# 6b. PredictionPolicy (RC pillar)
+# =============================================================================
+
+@dataclass
+class PredictionPolicy:
+    """How far prediction / assertion is allowed. Diagnosis only."""
+    minimum_evidence: str = "medium"  # high / medium / low / none
+    when_uncertain: str = "ask"       # ask / refuse / state_confidence / allow
+    allow_forward_looking: bool = False
+    notes: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "minimum_evidence": self.minimum_evidence,
+            "when_uncertain": self.when_uncertain,
+            "allow_forward_looking": self.allow_forward_looking,
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PredictionPolicy":
+        return cls(
+            minimum_evidence=str(data.get("minimum_evidence", "medium")),
+            when_uncertain=str(data.get("when_uncertain", "ask")),
+            allow_forward_looking=bool(data.get("allow_forward_looking", False)),
+            notes=str(data.get("notes", "")),
+        )
+
+
+# =============================================================================
 # 7. Behavior (executable rules)
 # =============================================================================
 
@@ -499,7 +599,7 @@ class OutputSpec:
 
 
 # =============================================================================
-# 9. Evaluation
+# 9. Evaluation (legacy + RC)
 # =============================================================================
 
 @dataclass
@@ -522,6 +622,26 @@ class EvaluationAxis:
             axes=axes,
             notes=str(data.get("notes", "")),
             metadata=dict(data.get("metadata") or {}),
+        )
+
+
+@dataclass
+class EvaluationCriteria:
+    """RC pillar: what to value and how much (name + weight)."""
+    criteria: Dict[str, float] = field(default_factory=dict)
+    notes: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "criteria": dict(self.criteria),
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EvaluationCriteria":
+        return cls(
+            criteria={str(k): float(v) for k, v in (data.get("criteria") or data.get("axes") or {}).items()},
+            notes=str(data.get("notes", "")),
         )
 
 
@@ -570,25 +690,48 @@ class PhaseState:
 
 
 # =============================================================================
-# Aggregate: ProblemSpecification (v0.9)
+# Gate (diagnosis only — never mutates the specification)
+# =============================================================================
+
+@dataclass
+class GateResult:
+    decision: str = GateDecision.PASS.value
+    reasons: List[str] = field(default_factory=list)
+    missing_required: List[str] = field(default_factory=list)
+    notes: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "decision": self.decision,
+            "reasons": list(self.reasons),
+            "missing_required": list(self.missing_required),
+            "notes": self.notes,
+        }
+
+
+# =============================================================================
+# Aggregate: ProblemSpecification (v0.9 + RC pillars)
 # =============================================================================
 
 @dataclass
 class ProblemSpecification:
     identity: Identity = field(default_factory=Identity)
     objective: Objective = field(default_factory=Objective)
+    mission: Mission = field(default_factory=Mission)  # RC
     constraints: Constraints = field(default_factory=Constraints)
     scope: Scope = field(default_factory=Scope)
     knowledge: KnowledgeState = field(default_factory=KnowledgeState)
     thinking_profile: ThinkingProfile = field(default_factory=ThinkingProfile)
+    prediction_policy: PredictionPolicy = field(default_factory=PredictionPolicy)  # RC
     behavior: Behavior = field(default_factory=Behavior)
     output: OutputSpec = field(default_factory=OutputSpec)
     evaluation: EvaluationAxis = field(default_factory=EvaluationAxis)
+    evaluation_criteria: EvaluationCriteria = field(default_factory=EvaluationCriteria)  # RC
     phase_state: PhaseState = field(default_factory=PhaseState)
 
     created_at: float = field(default_factory=time.time)
     schema: str = "pss.problem_specification/0.9"
-    version: str = "0.9"
+    version: str = "0.9.1"
 
     @property
     def problem(self) -> Identity:
@@ -598,6 +741,53 @@ class ProblemSpecification:
     def goal(self) -> Goal:
         return self.objective.goal
 
+    def diagnose_gate(self) -> GateResult:
+        """Diagnosis only. Never mutates self.
+
+        Simple heuristic aligned with RC behavioral tests:
+        - BLOCK if critical missing information exists and phase is not yet answer
+        - ASK if unknowns remain and interaction prefers questions
+        - PASS otherwise
+        """
+        reasons: List[str] = []
+        missing = list(self.knowledge.missing or self.knowledge.unknown)
+
+        if missing and self.phase_state.phase in (Phase.CLARIFY.value, "1_clarify"):
+            reasons.append(f"Missing required information: {missing}")
+            return GateResult(
+                decision=GateDecision.BLOCK.value,
+                reasons=reasons,
+                missing_required=missing,
+                notes="Clarify phase + missing → BLOCK (diagnosis only)",
+            )
+
+        if missing and self.behavior.rules.if_missing_required == "ask":
+            reasons.append("Missing items present; policy prefers ask")
+            return GateResult(
+                decision=GateDecision.ASK.value,
+                reasons=reasons,
+                missing_required=missing,
+                notes="Missing + ask policy → ASK",
+            )
+
+        if self.prediction_policy.when_uncertain == "refuse" and missing:
+            reasons.append("PredictionPolicy refuses under uncertainty")
+            return GateResult(
+                decision=GateDecision.BLOCK.value,
+                reasons=reasons,
+                missing_required=missing,
+            )
+
+        return GateResult(
+            decision=GateDecision.PASS.value,
+            reasons=["No blocking conditions detected"],
+            notes="Gate diagnosis only — specification unchanged",
+        )
+
+    def run_gate(self) -> GateResult:
+        """Alias for diagnose_gate (RC compatibility). Pure diagnosis."""
+        return self.diagnose_gate()
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "schema": self.schema,
@@ -605,13 +795,16 @@ class ProblemSpecification:
             "created_at": self.created_at,
             "identity": self.identity.to_dict(),
             "objective": self.objective.to_dict(),
+            "mission": self.mission.to_dict(),
             "constraints": self.constraints.to_dict(),
             "scope": self.scope.to_dict(),
             "knowledge": self.knowledge.to_dict(),
             "thinking_profile": self.thinking_profile.to_dict(),
+            "prediction_policy": self.prediction_policy.to_dict(),
             "behavior": self.behavior.to_dict(),
             "output": self.output.to_dict(),
             "evaluation": self.evaluation.to_dict(),
+            "evaluation_criteria": self.evaluation_criteria.to_dict(),
             "phase_state": self.phase_state.to_dict(),
         }
 
@@ -620,17 +813,20 @@ class ProblemSpecification:
         return cls(
             identity=Identity.from_dict(data.get("identity") or {}),
             objective=Objective.from_dict(data.get("objective") or {}),
+            mission=Mission.from_dict(data.get("mission") or {}),
             constraints=Constraints.from_dict(data.get("constraints") or {}),
             scope=Scope.from_dict(data.get("scope") or {}),
             knowledge=KnowledgeState.from_dict(data.get("knowledge") or {}),
             thinking_profile=ThinkingProfile.from_dict(data.get("thinking_profile") or {}),
+            prediction_policy=PredictionPolicy.from_dict(data.get("prediction_policy") or {}),
             behavior=Behavior.from_dict(data.get("behavior") or data.get("agent_role") or data.get("extensions") or {}),
             output=OutputSpec.from_dict(data.get("output") or {}),
             evaluation=EvaluationAxis.from_dict(data.get("evaluation") or data.get("evaluation_axis") or {}),
+            evaluation_criteria=EvaluationCriteria.from_dict(data.get("evaluation_criteria") or {}),
             phase_state=PhaseState.from_dict(data.get("phase_state") or {}),
             created_at=float(data.get("created_at", time.time())),
             schema=str(data.get("schema", "pss.problem_specification/0.9")),
-            version=str(data.get("version", "0.9")),
+            version=str(data.get("version", "0.9.1")),
         )
 
     def summary(self) -> str:
@@ -638,7 +834,7 @@ class ProblemSpecification:
             f"[PSS ProblemSpecification v{self.version}]",
             f"Title       : {self.identity.title}",
             f"Domain      : {self.identity.domain}",
-            f"Goal        : {self.objective.goal.description}",
+            f"Mission     : {self.mission.goal or self.objective.goal.description}",
             f"Phase       : {self.phase_state.phase} (cycle {self.phase_state.cycle})",
             f"Role        : {self.behavior.role}",
             f"Criticism   : {self.behavior.criticism_level}",
@@ -646,12 +842,14 @@ class ProblemSpecification:
             f"Interaction : {self.behavior.interaction_policy}",
             f"Thinking    : bias={self.thinking_profile.reasoning_bias} depth={self.thinking_profile.depth}",
             f"Evidence    : {self.thinking_profile.evidence_level}",
+            f"Prediction  : min_evidence={self.prediction_policy.minimum_evidence} when_uncertain={self.prediction_policy.when_uncertain}",
         ]
         if self.knowledge.observation:
             lines.append(f"Observation : {len(self.knowledge.observation)}")
         if self.knowledge.unknown or self.knowledge.missing:
             lines.append(f"Unknown/Missing : {self.knowledge.unknown + self.knowledge.missing}")
-        if self.evaluation.axes:
-            axes = ", ".join(f"{k}={v}" for k, v in self.evaluation.axes.items())
-            lines.append(f"Eval Axes   : {axes}")
+        if self.evaluation.axes or self.evaluation_criteria.criteria:
+            axes = self.evaluation_criteria.criteria or self.evaluation.axes
+            axes_s = ", ".join(f"{k}={v}" for k, v in axes.items())
+            lines.append(f"Eval        : {axes_s}")
         return "\n".join(lines)
