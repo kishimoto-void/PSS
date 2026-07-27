@@ -3,8 +3,8 @@ PSS — Problem Specification System (v0.9.1)
 ===========================================
 思考条件を定義し、検証する共通仕様。
 
-Public API (stable toward v1.0)
--------------------------------
+Public API (freeze candidate toward v1.0)
+-----------------------------------------
     from pss import (
         ProblemSpecification,
         ProblemBuilder,
@@ -18,9 +18,15 @@ Public API (stable toward v1.0)
         PredictionPolicy,
         EvaluationCriteria,
         GateResult,
+        GateDecision,
     )
 
-Other symbols are available but considered internal / transitional.
+Deprecations (kept for compatibility until v2.0):
+  - ProblemBuilder.agent_role(...)  → use .behavior(role=..., role_description=...)
+  - EvaluationAxis                 → prefer EvaluationCriteria
+  - Objective                      → prefer Mission (Objective remains supported)
+
+See DEPRECATIONS.md and ROADMAP.md for the full plan.
 """
 
 from .core import (
@@ -70,7 +76,7 @@ from .adapter import compile_for_generic
 from .validator import validate, ValidationReport, Finding, Severity
 from .planner import plan_fixes, FixPlan, FixStep, FixAction
 
-# Transitional / internal
+# Transitional / internal (not in __all__)
 from .adapter import (
     compile_for_gpt,
     compile_for_claude,
@@ -94,7 +100,9 @@ from .phase import Phase as PhaseEnum, PhaseState as PhaseStateLegacy, PhaseCont
 
 __version__ = "0.9.1"
 
+# Strict public surface toward v1.0
 __all__ = [
+    # Core entry points
     "ProblemSpecification",
     "ProblemBuilder",
     "validate",
@@ -103,24 +111,30 @@ __all__ = [
     "from_capsule",
     "compile_for_generic",
     "render_specification",
+    # Results / reports
     "ValidationReport",
     "Finding",
     "Severity",
     "FixPlan",
     "FixStep",
     "FixAction",
+    "GateResult",
+    "GateDecision",
+    # Primary data structures (RC-aligned)
     "Identity",
-    "Objective",
     "Mission",
     "SubMission",
     "KnowledgeState",
     "PredictionPolicy",
+    "ThinkingProfile",
     "Behavior",
     "BehaviorRules",
     "EvaluationCriteria",
-    "GateResult",
-    "GateDecision",
     "PhaseState",
     "Phase",
+    # Still supported (compatibility)
+    "Objective",
+    "EvaluationAxis",
+    # Meta
     "__version__",
 ]
