@@ -6,8 +6,8 @@
 
 - **Package (`pss/`)** : **v0.9.1**  
   - RC pillars + Gate diagnosis-only + balanced/strict Adapter  
-  - Public API tightened toward v1.0  
-  - Deprecations documented (`DEPRECATIONS.md`)
+  - Public API tightened  
+  - CHANGELOG / RELEASE_NOTES_0.9.1 / DEPRECATIONS 整備済み
 
 - **Single-file** : v1.0.0-rc1
 
@@ -20,16 +20,13 @@
 ### Step 3 — テストの最新化と忠実性強化 (Done)
 ### Step 4 — Adapter / compile の統一 (Done)
 ### Step 5 — API 固定とクリーンアップ (Done)
-- [x] `__all__` を厳格化（Public API を明確化）
-- [x] deprecated 一覧を `DEPRECATIONS.md` に記載
-- [x] `agent_role` → `behavior` への移行を明記
-- [x] schema / version を v1.0 に向けて準備（現状 0.9.1）
-
-### Step 6 — v1.0.0 リリース準備
-- package と single-file の最終揃え
-- タグ付け
-- CHANGELOG / RELEASE_NOTES の整備
-- 非破壊的な互換性の最終確認
+### Step 6 — v1.0.0 / 0.9.1 リリース準備 (Done)
+- [x] CHANGELOG.md 作成
+- [x] RELEASE_NOTES_0.9.1.md 作成
+- [x] DEPRECATIONS.md 整備
+- [x] README / ROADMAP 最終更新
+- [ ] PR レビュー & マージ（ユーザー作業）
+- [ ] タグ `v0.9.1` 作成（ユーザー作業）
 
 ---
 
@@ -43,6 +40,8 @@
 
 ---
 
-## Next Action
+## Next Actions (for maintainer)
 
-Step 5 完了。次は **Step 6（v1.0.0 リリース準備）** または PR のレビュー・マージ。
+1. PR #1 をレビューしてマージ
+2. 必要なら `git tag v0.9.1` を打つ
+3. さらに single-file との完全揃えを進める場合は次のイテレーション
