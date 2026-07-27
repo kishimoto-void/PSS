@@ -1,6 +1,6 @@
 """
-PSS — Problem Specification System (v0.9)
-=========================================
+PSS — Problem Specification System (v0.9.1)
+===========================================
 思考条件を定義し、検証する共通仕様。
 
 Public API (stable toward v1.0)
@@ -14,6 +14,10 @@ Public API (stable toward v1.0)
         from_capsule,
         compile_for_generic,
         render_specification,
+        Mission,
+        PredictionPolicy,
+        EvaluationCriteria,
+        GateResult,
     )
 
 Other symbols are available but considered internal / transitional.
@@ -26,17 +30,23 @@ from .core import (
     CurrentState,
     Goal,
     Difference,
+    Mission,
+    SubMission,
     Constraints,
     ConstraintSpec,
     Scope,
     KnowledgeState,
     ThinkingProfile,
+    PredictionPolicy,
     Behavior,
     BehaviorRules,
     OutputSpec,
     EvaluationAxis,
+    EvaluationCriteria,
     PhaseState,
     Phase,
+    GateResult,
+    GateDecision,
     ReasoningBias,
     Depth,
     EvidenceLevel,
@@ -82,7 +92,7 @@ from .validator import (
 from .planner import FixPlanner
 from .phase import Phase as PhaseEnum, PhaseState as PhaseStateLegacy, PhaseController, PHASE_RULES
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 __all__ = [
     "ProblemSpecification",
@@ -101,9 +111,15 @@ __all__ = [
     "FixAction",
     "Identity",
     "Objective",
+    "Mission",
+    "SubMission",
     "KnowledgeState",
+    "PredictionPolicy",
     "Behavior",
     "BehaviorRules",
+    "EvaluationCriteria",
+    "GateResult",
+    "GateDecision",
     "PhaseState",
     "Phase",
     "__version__",
