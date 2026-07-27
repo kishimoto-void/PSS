@@ -5,46 +5,37 @@
 ## Current State (2026-07-27)
 
 - **Package (`pss/`)** : **v0.9.1**  
-  - Core: Identity / Objective / **Mission** / Constraints / Scope / Knowledge / ThinkingProfile / **PredictionPolicy** / Behavior / Output / Evaluation / **EvaluationCriteria** / PhaseState / **Gate (diagnosis-only)**  
-  - Validator + FixPlanner  
-  - Public API + RC pillars coexisting  
-  - **Test suite updated for 0.9.1 + Gate mutation check**
+  - Core + RC pillars (Mission / PredictionPolicy / EvaluationCriteria / Gate diagnosis-only)  
+  - **Adapter**: `compile_for_generic(..., mode="balanced"|"strict")` 対応完了  
+  - Test suite updated
 
-- **Single-file (`pss_single.py`)** : v1.0.0-rc1  
-  - Pillars: Mission / ThinkingProfile / PredictionPolicy / EvaluationCriteria  
-  - Gate (diagnosis only)
+- **Single-file (`pss_single.py`)** : v1.0.0-rc1
 
 ---
 
 ## Sequential Steps (優先順)
 
 ### Step 1 — Documentation & Dual-track Clarification (Done)
-- [x] README に dual-track を明確化
-- [x] ROADMAP.md 作成
-- [x] USAGE.md を dual-track 対応に更新
+- [x] README / ROADMAP / USAGE 更新
 
-### Step 2 — Package への RC 柱移植（互換性を保ちながら） (Done)
-- [x] `Mission` / `SubMission` 構造を追加（Objective と並存）
-- [x] `PredictionPolicy` を正式追加
-- [x] `EvaluationCriteria` を追加（EvaluationAxis と並存）
-- [x] Gate を diagnosis-only として `diagnose_gate()` / `run_gate()` を実装
-- [x] Builder に `.main_mission()`, `.add_sub_mission()`, `.prediction_policy()` などを追加
+### Step 2 — Package への RC 柱移植 (Done)
+- [x] Mission / PredictionPolicy / EvaluationCriteria / Gate (diagnosis-only)
+- [x] Builder 対応メソッド追加
 
 ### Step 3 — テストの最新化と忠実性強化 (Done)
-- [x] pytest を 0.9.1 + RC 柱に合わせて更新
-- [x] Gate / PredictionPolicy の「副作用なし」を `copy.deepcopy` で自動検証
-- [x] Behavioral 寄りのケース（used-car 風 BLOCK、complete PASS など）を追加
-- [x] Mission / PredictionPolicy / EvaluationCriteria の roundtrip テスト追加
-- [ ] CI での実行確認（ユーザー側 or 次のアクション）
+- [x] pytest 更新 + Gate 副作用なし検証 + Behavioral ケース
 
-### Step 4 — Adapter / compile の統一
-- package の `compile_for_generic` を RC の balanced/strict 形式に寄せる
-- SPEC_EXPLANATION を簡潔化
+### Step 4 — Adapter / compile の統一 (Done)
+- [x] `compile_for_generic(spec, mode="balanced"|"strict")` を実装
+- [x] balanced: 自然な導入 + Mission / Knowledge / Prediction / Gate 核心のみ
+- [x] strict: 詳細説明 + フル render_specification + Gate 診断
+- [x] 後方互換維持（mode 省略時は balanced）
 
 ### Step 5 — API 固定とクリーンアップ
 - deprecated (`agent_role` など) の削除計画を明記
 - `__all__` を厳格化
 - schema version を 1.0 に向けて準備
+- 既存テストの最終確認
 
 ### Step 6 — v1.0.0 リリース
 - package と single-file を揃える
@@ -65,4 +56,4 @@
 
 ## Next Action
 
-Step 3 完了。次は **Step 4（Adapter 統一）** または ローカルで `pytest` を実行して確認。
+Step 4 完了。次は **Step 5（API 固定とクリーンアップ）**。
