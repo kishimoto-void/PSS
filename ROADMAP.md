@@ -4,17 +4,17 @@
 
 ## Current State (2026-07-27)
 
-- **Package (`pss/`)** : v0.9.0  
-  - Core: Identity / Objective (Goal + CurrentState + Difference) / Constraints / Scope / Knowledge / ThinkingProfile / Behavior / Output / Evaluation / PhaseState  
+- **Package (`pss/`)** : **v0.9.1** (Step 2 in progress)  
+  - Core: Identity / Objective (Goal + CurrentState + Difference) / **Mission** / Constraints / Scope / Knowledge / ThinkingProfile / **PredictionPolicy** / Behavior / Output / Evaluation / **EvaluationCriteria** / PhaseState / **Gate (diagnosis-only)**  
   - Validator + FixPlanner 完成度高  
-  - Public API freeze candidate
+  - Public API freeze candidate + RC pillars coexisting
 
 - **Single-file (`pss_single.py`)** : v1.0.0-rc1  
   - Pillars: **Mission** (Main/Sub) / ThinkingProfile / **PredictionPolicy** / **EvaluationCriteria**  
   - Gate (diagnosis only) / Phase / Behavior  
   - `compile_for_generic(mode="balanced"|"strict")`
 
-両者は思想は一致しているが、データ構造の命名と柱が完全に揃っていない。
+両者は思想は一致。package 側に RC 柱を非破壊追加した。
 
 ---
 
@@ -23,17 +23,19 @@
 ### Step 1 — Documentation & Dual-track Clarification (Done)
 - [x] README に dual-track を明確化
 - [x] ROADMAP.md 作成
-- [ ] USAGE.md を dual-track 対応に更新
+- [x] USAGE.md を dual-track 対応に更新
 
-### Step 2 — Package への RC 柱移植（互換性を保ちながら）
-1. `Mission` 構造を `Objective` と並存 or 置換可能な形で追加
-2. `PredictionPolicy` を正式追加
-3. `EvaluationCriteria` を `EvaluationAxis` から進化
-4. Gate を diagnosis-only として package 側にも明示的に実装
-5. Builder に `.main_mission()`, `.prediction_policy()` などを追加
+### Step 2 — Package への RC 柱移植（互換性を保ちながら） (In Progress)
+- [x] `Mission` / `SubMission` 構造を追加（Objective と並存）
+- [x] `PredictionPolicy` を正式追加
+- [x] `EvaluationCriteria` を追加（EvaluationAxis と並存）
+- [x] Gate を diagnosis-only として `diagnose_gate()` / `run_gate()` を実装
+- [x] Builder に `.main_mission()`, `.add_sub_mission()`, `.prediction_policy()` などを追加
+- [ ] 既存テストが通ることを確認
+- [ ] Adapter / compile の更新（Step 4 と連携）
 
 ### Step 3 — テストの最新化と忠実性強化
-- pytest を 0.9 + RC 柱に合わせて更新
+- pytest を 0.9.1 + RC 柱に合わせて更新
 - Behavioral tests (docs/tests) を pytest に統合
 - Gate / PredictionPolicy の「副作用なし」を自動検証
 - multi-seed / different Knowledge 構成での挙動確認
@@ -66,7 +68,4 @@
 
 ## Next Action
 
-現在 **Step 1 完了**。  
-次は **Step 2** の Mission / PredictionPolicy 移植から着手する予定。
-
-ご指示があれば優先順位を調整します。
+Step 2 のコード追加は完了。次は既存テストの確認と Step 3（テスト強化）へ。
