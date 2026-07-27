@@ -10,10 +10,10 @@ It is not an agent framework.
 It is a lightweight, model-independent library for writing, validating, and improving problem specifications.
 
 **Current tracks**  
-- **Package `pss/`**: **0.9.0** (stable API freeze candidate)  
-- **Single-file**: **1.0.0-rc1** (conceptual reference for Mission / PredictionPolicy / Gate / EvaluationCriteria)
+- **Package `pss/`**: **0.9.1** (API freeze candidate toward v1.0)  
+- **Single-file**: **1.0.0-rc1** (conceptual reference)
 
-See [RELEASE_NOTES_1.0-rc1.md](RELEASE_NOTES_1.0-rc1.md) and the new [ROADMAP.md](ROADMAP.md).
+See [ROADMAP.md](ROADMAP.md) · [DEPRECATIONS.md](DEPRECATIONS.md) · [RELEASE_NOTES_1.0-rc1.md](RELEASE_NOTES_1.0-rc1.md)
 
 ---
 
@@ -43,7 +43,7 @@ See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](
 
 ---
 
-## Public API (package 0.9)
+## Public API (package 0.9.1)
 
 ```python
 from pss import (
@@ -53,8 +53,12 @@ from pss import (
     plan_fixes,
     to_capsule,
     from_capsule,
-    compile_for_generic,
+    compile_for_generic,   # mode="balanced" | "strict"
     render_specification,
+    Mission,
+    PredictionPolicy,
+    EvaluationCriteria,
+    GateResult,
 )
 ```
 
@@ -87,7 +91,7 @@ PSS does **not** parse natural language. That step is human or a front-end LLM.
 
 Executor, CLI, and IDE integrations live **outside** the core.
 
-**RC pillars (1.0-rc1):** Mission · ThinkingProfile · PredictionPolicy · EvaluationCriteria  
+**RC pillars:** Mission · ThinkingProfile · PredictionPolicy · EvaluationCriteria  
 **Ops:** Phase · Gate (diagnosis only) · Behavior · Validator
 
 ---
@@ -110,11 +114,11 @@ Executor, CLI, and IDE integrations live **outside** the core.
 
 | Track | Version | Status | Notes |
 |-------|---------|--------|-------|
-| Package `pss/` | 0.9.0 | Stable freeze candidate | Objective/Goal based |
-| Single-file | 1.0.0-rc1 | Conceptual freeze | Mission / PredictionPolicy / Gate oriented |
-| Future | 1.0.0 | Target | Align package to RC pillars while keeping compatibility |
+| Package `pss/` | **0.9.1** | API freeze candidate | Mission + PredictionPolicy + Gate 追加済み |
+| Single-file | 1.0.0-rc1 | Conceptual freeze | |
+| Future | 1.0.0 | Target | 最終揃え |
 
-**Sequential improvement is in progress** (see [ROADMAP.md](ROADMAP.md)).
+**Sequential improvement** → [ROADMAP.md](ROADMAP.md) · [DEPRECATIONS.md](DEPRECATIONS.md)
 
 ---
 
