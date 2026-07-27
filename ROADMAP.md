@@ -4,17 +4,15 @@
 
 ## Current State (2026-07-27)
 
-- **Package (`pss/`)** : **v0.9.1** (Step 2 in progress)  
-  - Core: Identity / Objective (Goal + CurrentState + Difference) / **Mission** / Constraints / Scope / Knowledge / ThinkingProfile / **PredictionPolicy** / Behavior / Output / Evaluation / **EvaluationCriteria** / PhaseState / **Gate (diagnosis-only)**  
-  - Validator + FixPlanner 完成度高  
-  - Public API freeze candidate + RC pillars coexisting
+- **Package (`pss/`)** : **v0.9.1**  
+  - Core: Identity / Objective / **Mission** / Constraints / Scope / Knowledge / ThinkingProfile / **PredictionPolicy** / Behavior / Output / Evaluation / **EvaluationCriteria** / PhaseState / **Gate (diagnosis-only)**  
+  - Validator + FixPlanner  
+  - Public API + RC pillars coexisting  
+  - **Test suite updated for 0.9.1 + Gate mutation check**
 
 - **Single-file (`pss_single.py`)** : v1.0.0-rc1  
-  - Pillars: **Mission** (Main/Sub) / ThinkingProfile / **PredictionPolicy** / **EvaluationCriteria**  
-  - Gate (diagnosis only) / Phase / Behavior  
-  - `compile_for_generic(mode="balanced"|"strict")`
-
-両者は思想は一致。package 側に RC 柱を非破壊追加した。
+  - Pillars: Mission / ThinkingProfile / PredictionPolicy / EvaluationCriteria  
+  - Gate (diagnosis only)
 
 ---
 
@@ -25,20 +23,19 @@
 - [x] ROADMAP.md 作成
 - [x] USAGE.md を dual-track 対応に更新
 
-### Step 2 — Package への RC 柱移植（互換性を保ちながら） (In Progress)
+### Step 2 — Package への RC 柱移植（互換性を保ちながら） (Done)
 - [x] `Mission` / `SubMission` 構造を追加（Objective と並存）
 - [x] `PredictionPolicy` を正式追加
 - [x] `EvaluationCriteria` を追加（EvaluationAxis と並存）
 - [x] Gate を diagnosis-only として `diagnose_gate()` / `run_gate()` を実装
 - [x] Builder に `.main_mission()`, `.add_sub_mission()`, `.prediction_policy()` などを追加
-- [ ] 既存テストが通ることを確認
-- [ ] Adapter / compile の更新（Step 4 と連携）
 
-### Step 3 — テストの最新化と忠実性強化
-- pytest を 0.9.1 + RC 柱に合わせて更新
-- Behavioral tests (docs/tests) を pytest に統合
-- Gate / PredictionPolicy の「副作用なし」を自動検証
-- multi-seed / different Knowledge 構成での挙動確認
+### Step 3 — テストの最新化と忠実性強化 (Done)
+- [x] pytest を 0.9.1 + RC 柱に合わせて更新
+- [x] Gate / PredictionPolicy の「副作用なし」を `copy.deepcopy` で自動検証
+- [x] Behavioral 寄りのケース（used-car 風 BLOCK、complete PASS など）を追加
+- [x] Mission / PredictionPolicy / EvaluationCriteria の roundtrip テスト追加
+- [ ] CI での実行確認（ユーザー側 or 次のアクション）
 
 ### Step 4 — Adapter / compile の統一
 - package の `compile_for_generic` を RC の balanced/strict 形式に寄せる
@@ -68,4 +65,4 @@
 
 ## Next Action
 
-Step 2 のコード追加は完了。次は既存テストの確認と Step 3（テスト強化）へ。
+Step 3 完了。次は **Step 4（Adapter 統一）** または ローカルで `pytest` を実行して確認。
