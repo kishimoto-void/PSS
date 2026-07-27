@@ -2,6 +2,11 @@
 
 PSS は **問題仕様書** です。自然言語解析エンジンではありません。
 
+> 現在は dual-track です。  
+> - **推奨（RC）**: `pss_single.py`（1.0.0-rc1）— Mission / PredictionPolicy / Gate 中心  
+> - **安定パッケージ**: `from pss import ...`（0.9.0）— Objective / Goal 中心  
+> 詳細は [ROADMAP.md](../ROADMAP.md) を参照。
+
 ## 思想（魔法の言葉ではない）
 
 よくある「LLMが賢くなる魔法のプロンプト」とは違います。
@@ -21,6 +26,7 @@ PSS は **問題仕様書** です。自然言語解析エンジンではあり�
 ## 一般LLMへの渡し方（重要）
 
 ```python
+# RC 推奨
 from pss_single import compile_for_generic
 
 prompt = compile_for_generic(spec, mode="balanced")  # 推奨（デフォルト）
@@ -76,7 +82,7 @@ prompt = compile_for_generic(spec, mode="balanced")  # 推奨（デフォルト�
 
 ---
 
-## パターン1: 人間が直接入力
+## パターン1: 人間が直接入力（RC / single-file）
 
 ```python
 from pss_single import ProblemBuilder, validate, compile_for_generic
@@ -138,4 +144,4 @@ Missing:
 | 問題を答えやすい仕様に固定する | **する** |
 | 不足は推測で埋める | **しない**（Gate / Prediction で止める） |
 
-関連: [`pss_single.py`](../pss_single.py) · [docs/tests/](tests/README.md)
+関連: [`pss_single.py`](../pss_single.py) · [docs/tests/](tests/README.md) · [ROADMAP.md](../ROADMAP.md)
