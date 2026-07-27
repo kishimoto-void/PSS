@@ -9,7 +9,11 @@ It is not a prompt template.
 It is not an agent framework.  
 It is a lightweight, model-independent library for writing, validating, and improving problem specifications.
 
-**Package: 0.9.0** · **Single-file RC: 1.0.0-rc1** — [release notes](RELEASE_NOTES_1.0-rc1.md)
+**Current tracks**  
+- **Package `pss/`**: **0.9.0** (stable API freeze candidate)  
+- **Single-file**: **1.0.0-rc1** (conceptual reference for Mission / PredictionPolicy / Gate / EvaluationCriteria)
+
+See [RELEASE_NOTES_1.0-rc1.md](RELEASE_NOTES_1.0-rc1.md) and the new [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -19,11 +23,11 @@ PSS is **not** “magic words that make the LLM smarter.”
 
 It **structures the problem** so the LLM can answer under clear conditions:
 
-- what to achieve (Mission)
-- what is known / unknown (Knowledge)
-- how far to predict (PredictionPolicy)
-- when to stop or ask (Gate)
-- what to value (EvaluationCriteria)
+- what to achieve (**Mission**)
+- what is known / unknown (**Knowledge** — Observation / Inference / Assumption / Unknown / Missing)
+- how far to predict (**PredictionPolicy**)
+- when to stop or ask (**Gate** — diagnosis only)
+- what to value (**EvaluationCriteria**)
 
 Less guessing load → more of the model’s capacity goes into the answer.
 
@@ -39,7 +43,7 @@ See also: [docs/architecture.svg](docs/architecture.svg) · [EXPERIMENT_LOG.md](
 
 ---
 
-## Public API (package 0.9, freeze toward v1.0)
+## Public API (package 0.9)
 
 ```python
 from pss import (
@@ -54,7 +58,7 @@ from pss import (
 )
 ```
 
-Single-file (copy-paste, RC reference): [`pss_single.py`](pss_single.py)
+Single-file (copy-paste RC reference): [`pss_single.py`](pss_single.py)
 
 ```bash
 python pss_single.py
@@ -83,7 +87,7 @@ PSS does **not** parse natural language. That step is human or a front-end LLM.
 
 Executor, CLI, and IDE integrations live **outside** the core.
 
-**Single-file RC pillars:** Mission · ThinkingProfile · PredictionPolicy · EvaluationCriteria  
+**RC pillars (1.0-rc1):** Mission · ThinkingProfile · PredictionPolicy · EvaluationCriteria  
 **Ops:** Phase · Gate (diagnosis only) · Behavior · Validator
 
 ---
@@ -102,12 +106,15 @@ Executor, CLI, and IDE integrations live **outside** the core.
 
 ---
 
-## Versioning
+## Versioning & Dual-track
 
-- **v0.9** — package API freeze candidate
-- **v1.0.0-rc1** — single-file conceptual freeze ([notes](RELEASE_NOTES_1.0-rc1.md))
-- **v1.x** — compatibility maintained
-- **v2.0** — may remove deprecated symbols
+| Track | Version | Status | Notes |
+|-------|---------|--------|-------|
+| Package `pss/` | 0.9.0 | Stable freeze candidate | Objective/Goal based |
+| Single-file | 1.0.0-rc1 | Conceptual freeze | Mission / PredictionPolicy / Gate oriented |
+| Future | 1.0.0 | Target | Align package to RC pillars while keeping compatibility |
+
+**Sequential improvement is in progress** (see [ROADMAP.md](ROADMAP.md)).
 
 ---
 
@@ -115,20 +122,9 @@ Executor, CLI, and IDE integrations live **outside** the core.
 
 - **No Executor in core**
 - **Behavior as executable rules**
-- **Observation vs Inference**
+- **Observation vs Inference** (strict separation)
 - **Gate diagnoses only — never mutates the specification**
 - **Not magic prompts — structure problems for full model capacity**
-
----
-
-## Status
-
-| Track | Version | Notes |
-|-------|---------|--------|
-| Package `pss/` | 0.9.0 | Public API freeze candidate |
-| Single-file | 1.0.0-rc1 | RC reference for pillars + Gate |
-| Usage | [docs/USAGE.md](docs/USAGE.md) | Human / LLM input patterns |
-| Tests | [docs/tests](docs/tests/README.md) | Gate / Prediction / Scope |
 
 ---
 
